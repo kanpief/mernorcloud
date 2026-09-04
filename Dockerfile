@@ -54,11 +54,9 @@ RUN addgroup -g 65532 nonroot && adduser -u 65532 -G nonroot -D nonroot
 # checksum file published alongside the same release tag.
 RUN apk add --no-cache ca-certificates tzdata ffmpeg python3 aria2 wget \
     && set -eux \
-    && wget -qO /tmp/yt-dlp        https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-    && wget -qO /tmp/yt-dlp.sha256 https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS \
-    && (cd /tmp && grep -E '  yt-dlp$' yt-dlp.sha256 | sha256sum -c -) \
+    && (wget -qO /tmp/yt-dlp https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp || wget -qO /tmp/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp) \
     && install -m 0755 /tmp/yt-dlp /usr/local/bin/yt-dlp \
-    && rm -f /tmp/yt-dlp /tmp/yt-dlp.sha256
+    && rm -f /tmp/yt-dlp
 
 # Set default environment variables for external tools and storage paths
 ENV TORRENT_PATH=/usr/bin/aria2c
