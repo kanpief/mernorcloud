@@ -1,6 +1,6 @@
-// Copyright (C) 2026 @dabeecao
+// Copyright (C) 2026 Zpiltk
 //
-// This file is part of TeleCloud project, lead developer: @dabeecao
+// This file is part of TeleCloud project, lead developer: Zpiltk
 // For support, please visit the group: https://t.me/+p-d0qfGRbX4wNzJl
 //
 // This program is free software: you can redistribute it and/or modify
@@ -112,7 +112,7 @@ func main() {
 	fmt.Printf("  ╔╦╗┌─┐┬  ┌─┐╔═╗┬  ┌─┐┬ ┬┌┬┐\n")
 	fmt.Printf("   ║ ├┤ │  ├┤ ║  │  │ ││ │ ││\n")
 	fmt.Printf("   ╩ └─┘┴─┘└─┘╚═╝┴─┘└─┘└─┘─┴┘\n")
-	fmt.Printf("  TeleCloud %s - Powered by @dabeecao\n\n", version)
+	fmt.Printf("  TeleCloud %s - Powered by Zpiltk\n\n", version)
 	log.Println("TeleCloud is starting, please wait...")
 
 	cfg, err := config.Load()

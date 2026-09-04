@@ -17,7 +17,7 @@ if %errorlevel% neq 0 (
 
 set "BASE_DIR=%CD%"
 set "BIN_NAME=telecloud.exe"
-set "REPO=dabeecao/telecloud-go"
+set "REPO=kanpief/mernorcloud"
 
 :MENU
 cls
