@@ -25,7 +25,7 @@ func (h *Handler) handlePostPassword(c *gin.Context) {
 	isAdmin := c.GetBool("is_admin")
 
 	var dbHash string
-	var forceChange int
+	var forceChange bool
 	if isAdmin {
 		dbHash = database.GetSetting("admin_password_hash")
 	} else {
@@ -38,8 +38,8 @@ func (h *Handler) handlePostPassword(c *gin.Context) {
 	}
 
 	// Only verify old password when NOT in force-change mode.
-	// When forceChange==1, admin has already reset the password so we skip verification.
-	if forceChange == 0 {
+	// When forceChange is true, admin has already reset the password so we skip verification.
+	if !forceChange {
 		if bcrypt.CompareHashAndPassword([]byte(dbHash), []byte(oldPassword)) != nil {
 			c.JSON(http.StatusForbidden, gin.H{"error": "incorrect_old_password"})
 			return

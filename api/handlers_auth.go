@@ -69,12 +69,12 @@ func (h *Handler) handlePostLogin(c *gin.Context) {
 	} else {
 		var child struct {
 			Hash        string `db:"password_hash"`
-			ForceChange int    `db:"force_password_change"`
+			ForceChange bool   `db:"force_password_change"`
 		}
 		err := database.RODB.Get(&child, "SELECT password_hash, force_password_change FROM child_accounts WHERE username = ?", username)
 		if err == nil && bcrypt.CompareHashAndPassword([]byte(child.Hash), []byte(password)) == nil {
 			authSuccess = true
-			forceChange = child.ForceChange == 1
+			forceChange = child.ForceChange
 		}
 	}
 

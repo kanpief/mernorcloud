@@ -354,12 +354,12 @@ func LoginPasskeyFinish(c *gin.Context) {
 	}
 	c.SetCookie("session_token", sessionToken, int(database.SessionTTL.Seconds()), "/", "", isSecure(), true)
 
-	var forceChange int
+	var forceChange bool
 	if username != database.GetSetting("admin_username") {
 		database.RODB.Get(&forceChange, "SELECT force_password_change FROM child_accounts WHERE username = ?", username)
 	}
 
-	if forceChange == 1 {
+	if forceChange {
 		c.JSON(http.StatusOK, gin.H{"status": "force_password_change", "username": username})
 		return
 	}

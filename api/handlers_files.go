@@ -53,22 +53,20 @@ func (h *Handler) handleGetIndex(c *gin.Context) {
 
 	if !isAdmin {
 		var userStatus struct {
-			WebDAVEnabled int `db:"webdav_enabled"`
-			APIEnabled    int `db:"api_enabled"`
+			WebDAVEnabled bool `db:"webdav_enabled"`
+			APIEnabled    bool `db:"api_enabled"`
 		}
 		err := database.RODB.Get(&userStatus, "SELECT webdav_enabled, api_enabled FROM child_accounts WHERE username = ?", sessionUsername)
 		if err == nil {
-			webdavEnabled = (globalWebdavEnabled && userStatus.WebDAVEnabled == 1)
-			uploadAPIEnabled = (globalUploadAPIEnabled && userStatus.APIEnabled == 1)
+			webdavEnabled = (globalWebdavEnabled && userStatus.WebDAVEnabled)
+			uploadAPIEnabled = (globalUploadAPIEnabled && userStatus.APIEnabled)
 		}
 		webdavUser = sessionUsername
 	}
 
 	var forcePasswordChange bool
 	if !isAdmin {
-		var fc int
-		database.RODB.Get(&fc, "SELECT force_password_change FROM child_accounts WHERE username = ?", sessionUsername)
-		forcePasswordChange = fc == 1
+		database.RODB.Get(&forcePasswordChange, "SELECT force_password_change FROM child_accounts WHERE username = ?", sessionUsername)
 	}
 
 	var userStorageUsed int64
@@ -90,13 +88,13 @@ func (h *Handler) handleGetIndex(c *gin.Context) {
 		s3SecretKey = database.GetSetting("s3_secret_key")
 	} else {
 		var childS3 struct {
-			Enabled   int     `db:"s3_enabled"`
+			Enabled   bool    `db:"s3_enabled"`
 			AccessKey *string `db:"s3_access_key"`
 			SecretKey *string `db:"s3_secret_key"`
 		}
 		err := database.RODB.Get(&childS3, "SELECT s3_enabled, s3_access_key, s3_secret_key FROM child_accounts WHERE username = ?", sessionUsername)
 		if err == nil {
-			s3Enabled = childS3.Enabled == 1 && database.GetSetting("s3_enabled") == "true"
+			s3Enabled = childS3.Enabled && database.GetSetting("s3_enabled") == "true"
 			if childS3.AccessKey != nil {
 				s3AccessKey = *childS3.AccessKey
 			}
@@ -1295,17 +1293,17 @@ func (h *Handler) authenticatePublicAPI(c *gin.Context) (string, bool, error) {
 
 	var userStatus struct {
 		Username    string `db:"username"`
-		Enabled     int    `db:"api_enabled"`
-		ForceChange int    `db:"force_password_change"`
+		Enabled     bool   `db:"api_enabled"`
+		ForceChange bool   `db:"force_password_change"`
 	}
 	err := database.RODB.Get(&userStatus, "SELECT username, api_enabled, force_password_change FROM child_accounts WHERE api_key = ?", token)
 	if err != nil || userStatus.Username == "" {
 		return "", false, fmt.Errorf("Invalid API key")
 	}
-	if userStatus.Enabled == 0 {
+	if !userStatus.Enabled {
 		return "", false, fmt.Errorf("API is disabled for this account")
 	}
-	if userStatus.ForceChange == 1 {
+	if userStatus.ForceChange {
 		return "", false, fmt.Errorf("Password change required via web interface before using API")
 	}
 

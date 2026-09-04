@@ -179,8 +179,8 @@ func NewHandler(cfg *config.Config) http.Handler {
 			isAdmin = false
 			var userStatus struct {
 				PasswordHash string `db:"password_hash"`
-				Enabled      int    `db:"webdav_enabled"`
-				ForceChange  int    `db:"force_password_change"`
+				Enabled      bool   `db:"webdav_enabled"`
+				ForceChange  bool   `db:"force_password_change"`
 			}
 			err := database.RODB.Get(&userStatus, "SELECT password_hash, webdav_enabled, force_password_change FROM child_accounts WHERE username = ?", user)
 			if err != nil {
@@ -189,11 +189,11 @@ func NewHandler(cfg *config.Config) http.Handler {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			if userStatus.Enabled == 0 {
+			if !userStatus.Enabled {
 				http.Error(w, "WebDAV is disabled for this account", http.StatusForbidden)
 				return
 			}
-			if userStatus.ForceChange == 1 {
+			if userStatus.ForceChange {
 				http.Error(w, "Password change required. Please login via web interface first.", http.StatusForbidden)
 				return
 			}
