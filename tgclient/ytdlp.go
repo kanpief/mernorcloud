@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"telecloud/config"
+	"telecloud/database"
 	"telecloud/utils"
 	"time"
 )
@@ -108,14 +109,11 @@ func GetYTDLPFormats(url string, cfg *config.Config, owner string) (*YTDLPInfo, 
 		"--no-check-certificates",
 	}
 
-	// Check for user cookie file or global cookie file
-	cookieFile := filepath.Join(cfg.CookiesDir, fmt.Sprintf("user_%s.txt", owner))
+	// Check for user cookie file or global cookie file (auto-restored from DB if needed)
+	cookieFile := EnsureUserCookie(owner, cfg)
 	hasCookie := false
-	if _, err := os.Stat(cookieFile); err == nil {
+	if cookieFile != "" {
 		args = append(args, "--cookies", cookieFile)
-		hasCookie = true
-	} else if globalCookie := filepath.Join(cfg.CookiesDir, "cookies.txt"); fileExistsCheck(globalCookie) {
-		args = append(args, "--cookies", globalCookie)
 		hasCookie = true
 	}
 
@@ -325,12 +323,10 @@ func ProcessYTDLPUpload(ctx context.Context, url, formatID, path, taskID, downlo
 		args = append(args, "--extract-audio", "--audio-format", "mp3", "--embed-thumbnail", "--add-metadata", "--convert-thumbnails", "jpg")
 	}
 
-	// Check for user cookie file or global cookie file
-	cookieFile := filepath.Join(cfg.CookiesDir, fmt.Sprintf("user_%s.txt", owner))
-	if _, err := os.Stat(cookieFile); err == nil {
+	// Check for user cookie file or global cookie file (auto-restored from DB if needed)
+	cookieFile := EnsureUserCookie(owner, cfg)
+	if cookieFile != "" {
 		args = append(args, "--cookies", cookieFile)
-	} else if globalCookie := filepath.Join(cfg.CookiesDir, "cookies.txt"); fileExistsCheck(globalCookie) {
-		args = append(args, "--cookies", globalCookie)
 	}
 
 	// Format selection flags must come BEFORE the URL
@@ -602,4 +598,28 @@ func fileExistsCheck(path string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+// EnsureUserCookie ensures the cookie file exists on disk, restoring it from database if necessary.
+func EnsureUserCookie(owner string, cfg *config.Config) string {
+	if cfg == nil || cfg.CookiesDir == "" || owner == "" {
+		return ""
+	}
+	os.MkdirAll(cfg.CookiesDir, 0755)
+	cookieFile := filepath.Join(cfg.CookiesDir, fmt.Sprintf("user_%s.txt", owner))
+	if fileExistsCheck(cookieFile) {
+		return cookieFile
+	}
+	// Restore from persistent database if container was restarted/redeployed
+	dbCookie := database.GetSetting("ytdlp_cookie_" + owner)
+	if dbCookie != "" {
+		if err := os.WriteFile(cookieFile, []byte(dbCookie), 0644); err == nil {
+			return cookieFile
+		}
+	}
+	globalCookie := filepath.Join(cfg.CookiesDir, "cookies.txt")
+	if fileExistsCheck(globalCookie) {
+		return globalCookie
+	}
+	return ""
 }

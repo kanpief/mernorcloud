@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"telecloud/database"
 	"telecloud/tgclient"
 	"telecloud/utils"
 	"time"
@@ -31,9 +32,8 @@ func (h *Handler) handleGetYTDLPStatus(c *gin.Context) {
 
 func (h *Handler) handleGetYTDLPCookiesStatus(c *gin.Context) {
 	username := c.GetString("username")
-	cookieFile := filepath.Join(h.cfg.CookiesDir, fmt.Sprintf("user_%s.txt", username))
-	_, err := os.Stat(cookieFile)
-	c.JSON(http.StatusOK, gin.H{"has_cookie": err == nil})
+	cookieFile := tgclient.EnsureUserCookie(username, h.cfg)
+	c.JSON(http.StatusOK, gin.H{"has_cookie": cookieFile != ""})
 }
 
 func (h *Handler) handlePostYTDLPCookies(c *gin.Context) {
@@ -55,9 +55,16 @@ func (h *Handler) handlePostYTDLPCookies(c *gin.Context) {
 	}
 	defer src.Close()
 
-	head := make([]byte, 100)
-	n, _ := src.Read(head)
-	headStr := string(head[:n])
+	contentBytes, err := io.ReadAll(src)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "read_failed"})
+		return
+	}
+
+	headStr := string(contentBytes)
+	if len(headStr) > 200 {
+		headStr = headStr[:200]
+	}
 
 	isNetscape := strings.Contains(headStr, "# Netscape HTTP Cookie File") || strings.Contains(headStr, "# HTTP Cookie File")
 	isJSON := strings.HasPrefix(strings.TrimSpace(headStr), "[")
@@ -71,15 +78,20 @@ func (h *Handler) handlePostYTDLPCookies(c *gin.Context) {
 	os.MkdirAll(h.cfg.CookiesDir, 0755)
 	cookieFile := filepath.Join(h.cfg.CookiesDir, fmt.Sprintf("user_%s.txt", username))
 
-	if err := c.SaveUploadedFile(file, cookieFile); err != nil {
+	if err := os.WriteFile(cookieFile, contentBytes, 0644); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "save_failed"})
 		return
 	}
+
+	// Persist to database so cookies survive container redeploys
+	database.SetSetting("ytdlp_cookie_"+username, string(contentBytes))
+
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
 func (h *Handler) handleDeleteYTDLPCookies(c *gin.Context) {
 	username := c.GetString("username")
+	database.SetSetting("ytdlp_cookie_"+username, "")
 	cookieFile := filepath.Join(h.cfg.CookiesDir, fmt.Sprintf("user_%s.txt", username))
 	os.Remove(cookieFile)
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
