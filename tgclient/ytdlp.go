@@ -106,20 +106,27 @@ func GetYTDLPFormats(url string, cfg *config.Config, owner string) (*YTDLPInfo, 
 		"--no-playlist",
 		"--no-warnings",
 		"--no-check-certificates",
-		"--extractor-args", "youtube:player_client=web,ios,android",
-		"--add-header", "Accept-Language:en-US,en;q=0.9",
-		"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 	}
 
 	// Check for user cookie file or global cookie file
 	cookieFile := filepath.Join(cfg.CookiesDir, fmt.Sprintf("user_%s.txt", owner))
+	hasCookie := false
 	if _, err := os.Stat(cookieFile); err == nil {
 		args = append(args, "--cookies", cookieFile)
+		hasCookie = true
 	} else if globalCookie := filepath.Join(cfg.CookiesDir, "cookies.txt"); fileExistsCheck(globalCookie) {
 		args = append(args, "--cookies", globalCookie)
+		hasCookie = true
+	}
+
+	// For YouTube, use mobile clients (android, ios, mweb) which do not require web JS/PO-token
+	if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+		args = append(args, "--extractor-args", "youtube:player_client=android,ios,mweb")
 	}
 
 	args = append(args, url)
+
+	log.Printf("[YTDLP] Fetching formats for %s (owner: %s, hasCookie: %v)", url, owner, hasCookie)
 
 	// Timeout so a hung yt-dlp (slow site, dead network) cannot block the
 	// HTTP handler indefinitely.
@@ -304,11 +311,13 @@ func ProcessYTDLPUpload(ctx context.Context, url, formatID, path, taskID, downlo
 		"--no-playlist",
 		"--no-warnings",
 		"--no-check-certificates",
-		"--extractor-args", "youtube:player_client=web,ios,android",
-		"--add-header", "Accept-Language:en-US,en;q=0.9",
-		"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 		"--concurrent-fragments", "5",
 		"-o", tempPathPattern,
+	}
+
+	// For YouTube, use mobile clients (android, ios, mweb)
+	if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+		args = append(args, "--extractor-args", "youtube:player_client=android,ios,mweb")
 	}
 
 	// Audio conversion logic
