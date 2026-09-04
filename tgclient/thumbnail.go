@@ -89,6 +89,11 @@ func RegenerateFileThumbnail(ctx context.Context, fileID int64, cfg *config.Conf
 	ext := strings.ToLower(filepath.Ext(item.Filename))
 
 	// 3. Define the output thumbnail name and path
+	if err := os.MkdirAll(cfg.ThumbsDir, 0755); err != nil {
+		log.Printf("[Thumbnail] Failed to create ThumbsDir %s: %v. Falling back to temp directory.", cfg.ThumbsDir, err)
+		cfg.ThumbsDir = filepath.Join(os.TempDir(), "telecloud_thumbs")
+		_ = os.MkdirAll(cfg.ThumbsDir, 0755)
+	}
 	thumbName := strings.ReplaceAll(uuid.New().String(), "-", "") + ".jpg"
 	thumbPath := filepath.Join(cfg.ThumbsDir, thumbName)
 
@@ -195,6 +200,10 @@ func generateThumbnailWithFFmpeg(ctx context.Context, fileID int64, actualMime s
 		return fmt.Errorf("ffmpeg is disabled")
 	}
 
+	if err := os.MkdirAll(filepath.Dir(thumbPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory for thumbnail %s: %w", thumbPath, err)
+	}
+
 	// Limit concurrent FFmpeg executions to prevent CPU starvation
 	select {
 	case ffmpegSemaphore <- struct{}{}:
@@ -218,50 +227,34 @@ func generateThumbnailWithFFmpeg(ctx context.Context, fileID int64, actualMime s
 	}
 	localURL := fmt.Sprintf("http://%s:%s/api/temp-stream/%s", host, cfg.Port, token)
 
-	var cmd *exec.Cmd
-	if isImage {
-		cmd = exec.Command(
-			cfg.FFMPEGPath, "-y", "-i", localURL,
-			"-vframes", "1",
-			"-vf", "scale=320:-1", thumbPath,
-		)
-	} else if strings.HasPrefix(actualMime, "video/") {
-		cmd = exec.Command(
-			cfg.FFMPEGPath, "-y", "-ss", "00:00:01.000", "-i", localURL,
-			"-vframes", "1",
-			"-vf", "scale=320:-1", thumbPath,
-		)
-	} else { // audio/
-		cmd = exec.Command(
-			cfg.FFMPEGPath, "-y", "-i", localURL,
-			"-an", "-vframes", "1",
-			"-vf", "scale=320:-1", thumbPath,
-		)
+	runFFmpeg := func(args []string) ([]byte, error) {
+		runCtx, runCancel := context.WithTimeout(ctx, 30*time.Second)
+		defer runCancel()
+
+		cmd := exec.CommandContext(runCtx, cfg.FFMPEGPath, args...)
+		cmd.Env = os.Environ()
+		return cmd.CombinedOutput()
 	}
 
-	cmd.Env = os.Environ()
+	var args []string
+	if isImage {
+		args = []string{"-y", "-i", localURL, "-vframes", "1", "-vf", "scale=320:-1", thumbPath}
+	} else if strings.HasPrefix(actualMime, "video/") {
+		args = []string{"-y", "-ss", "00:00:00.500", "-i", localURL, "-vframes", "1", "-vf", "scale=320:-1", thumbPath}
+	} else { // audio/
+		args = []string{"-y", "-i", localURL, "-an", "-vframes", "1", "-vf", "scale=320:-1", thumbPath}
+	}
 
-	// Run FFmpeg with a 30 second timeout to prevent hanging
-	runCtx, runCancel := context.WithTimeout(ctx, 30*time.Second)
-	defer runCancel()
+	out, err := runFFmpeg(args)
+	if err != nil && strings.HasPrefix(actualMime, "video/") {
+		// Retry without input seek for videos where fast seeking fails or video is shorter than 0.5s
+		argsFallback := []string{"-y", "-i", localURL, "-vframes", "1", "-vf", "scale=320:-1", thumbPath}
+		out, err = runFFmpeg(argsFallback)
+	}
 
-	cmd.Process = nil
-
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- cmd.Run()
-	}()
-
-	select {
-	case <-runCtx.Done():
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
-		return fmt.Errorf("ffmpeg timed out: %w", runCtx.Err())
-	case err := <-errCh:
-		if err != nil {
-			return fmt.Errorf("ffmpeg error: %w", err)
-		}
+	if err != nil {
+		log.Printf("[Thumbnail] FFmpeg error for file %s: %v, output: %s", item.Filename, err, string(out))
+		return fmt.Errorf("ffmpeg error: %w", err)
 	}
 
 	return nil
