@@ -166,7 +166,7 @@ func (h *Handler) handlePostYTDLPFormats(c *gin.Context) {
 	username := c.GetString("username")
 	info, err := tgclient.GetYTDLPFormats(url, h.cfg, username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, info)

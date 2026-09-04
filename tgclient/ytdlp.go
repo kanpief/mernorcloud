@@ -25,6 +25,14 @@ func translateYTDLPError(errMsg string) string {
 	switch {
 	case strings.Contains(errMsg, "sign in to confirm your age"):
 		return "age_restricted"
+	case strings.Contains(errMsg, "sign in to confirm you’re not a bot") ||
+		strings.Contains(errMsg, "sign in to confirm you're not a bot") ||
+		strings.Contains(errMsg, "bot detection") ||
+		strings.Contains(errMsg, "confirm you are not a bot") ||
+		strings.Contains(errMsg, "sign in to confirm") ||
+		strings.Contains(errMsg, "use --cookies") ||
+		strings.Contains(errMsg, "robot"):
+		return "bot_detection"
 	case strings.Contains(errMsg, "incomplete youtube id") || strings.Contains(errMsg, "not a valid url"):
 		return "invalid_url"
 	case strings.Contains(errMsg, "this video is unavailable") || strings.Contains(errMsg, "video unavailable"):
@@ -93,13 +101,25 @@ func GetYTDLPFormats(url string, cfg *config.Config, owner string) (*YTDLPInfo, 
 		return nil, fmt.Errorf("forbidden_url")
 	}
 
-	args := []string{"-J", "--no-playlist", url}
+	args := []string{
+		"-J",
+		"--no-playlist",
+		"--no-warnings",
+		"--no-check-certificates",
+		"--extractor-args", "youtube:player_client=web,ios,android",
+		"--add-header", "Accept-Language:en-US,en;q=0.9",
+		"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+	}
 
-	// Check for user cookie file
+	// Check for user cookie file or global cookie file
 	cookieFile := filepath.Join(cfg.CookiesDir, fmt.Sprintf("user_%s.txt", owner))
 	if _, err := os.Stat(cookieFile); err == nil {
-		args = append([]string{"--cookies", cookieFile}, args...)
+		args = append(args, "--cookies", cookieFile)
+	} else if globalCookie := filepath.Join(cfg.CookiesDir, "cookies.txt"); fileExistsCheck(globalCookie) {
+		args = append(args, "--cookies", globalCookie)
 	}
+
+	args = append(args, url)
 
 	// Timeout so a hung yt-dlp (slow site, dead network) cannot block the
 	// HTTP handler indefinitely.
@@ -159,7 +179,7 @@ func GetYTDLPFormats(url string, cfg *config.Config, owner string) (*YTDLPInfo, 
 		if len(errMsg) > 200 {
 			errMsg = errMsg[:197] + "..."
 		}
-		return nil, fmt.Errorf("ytdlp_error: %s", errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 
 	var info YTDLPInfo
@@ -282,6 +302,11 @@ func ProcessYTDLPUpload(ctx context.Context, url, formatID, path, taskID, downlo
 	args := []string{
 		"--newline",
 		"--no-playlist",
+		"--no-warnings",
+		"--no-check-certificates",
+		"--extractor-args", "youtube:player_client=web,ios,android",
+		"--add-header", "Accept-Language:en-US,en;q=0.9",
+		"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 		"--concurrent-fragments", "5",
 		"-o", tempPathPattern,
 	}
@@ -291,10 +316,12 @@ func ProcessYTDLPUpload(ctx context.Context, url, formatID, path, taskID, downlo
 		args = append(args, "--extract-audio", "--audio-format", "mp3", "--embed-thumbnail", "--add-metadata", "--convert-thumbnails", "jpg")
 	}
 
-	// Check for user cookie file
+	// Check for user cookie file or global cookie file
 	cookieFile := filepath.Join(cfg.CookiesDir, fmt.Sprintf("user_%s.txt", owner))
 	if _, err := os.Stat(cookieFile); err == nil {
 		args = append(args, "--cookies", cookieFile)
+	} else if globalCookie := filepath.Join(cfg.CookiesDir, "cookies.txt"); fileExistsCheck(globalCookie) {
+		args = append(args, "--cookies", globalCookie)
 	}
 
 	// Format selection flags must come BEFORE the URL
@@ -558,4 +585,12 @@ func ProcessYTDLPUpload(ctx context.Context, url, formatID, path, taskID, downlo
 
 	// Call existing upload logic
 	ProcessCompleteUpload(ctx, downloadedFile, filename, path, mimeType, taskID, cfg, false, owner)
+}
+
+func fileExistsCheck(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
 }

@@ -35,8 +35,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build \
     -ldflags="-s -w -X main.version=${VERSION} -X telecloud/config.DefaultAPIIDStr=${DEFAULT_API_ID} -X telecloud/config.DefaultAPIHash=${DEFAULT_API_HASH}" \
     -o telecloud .
 
-# Create data and thumbs directory and set permissions for the nonroot user (UID 65532)
-RUN mkdir -p /app/data/thumbs /app/data/temp && chown -R 65532:65532 /app/data
+# Create data, thumbs, cookies and temp directories and set permissions for the nonroot user (UID 65532)
+RUN mkdir -p /app/data/thumbs /app/data/temp /app/data/cookies && chown -R 65532:65532 /app/data
 
 # ============================================================
 # Stage 2: Minimal runtime image
@@ -65,6 +65,7 @@ ENV TORRENT_PATH=/usr/bin/aria2c
 ENV YTDLP_PATH=/usr/local/bin/yt-dlp
 ENV FFMPEG_PATH=/usr/bin/ffmpeg
 ENV THUMBS_DIR=/app/data/thumbs
+ENV COOKIES_DIR=/app/data/cookies
 ENV TEMP_DIR=/tmp
 
 # Copy the compiled binary (assets are embedded via go:embed)

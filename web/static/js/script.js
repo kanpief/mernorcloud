@@ -886,9 +886,12 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
         t(key, params) { return TeleCloud.t(key, params, this.lang); },
         handleCommonError(errorStr, defaultKey) {
             if (!errorStr) return this.t(defaultKey);
-            const errorKey = 'err_' + errorStr.toLowerCase().replace(/ /g, '_');
-            const translated = this.t(errorKey);
-            return (translated !== errorKey) ? translated : (this.t(defaultKey) + ' (' + errorStr + ')');
+            let cleanKey = errorStr.toLowerCase().replace(/ /g, '_');
+            if (!cleanKey.startsWith('err_')) {
+                cleanKey = 'err_' + cleanKey;
+            }
+            const translated = this.t(cleanKey);
+            return (translated !== cleanKey) ? translated : (this.t(defaultKey) + ' (' + errorStr + ')');
         },
         async resetAdmin() {
             if (this.password !== this.confirmPassword) {
@@ -6260,9 +6263,11 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
                 } else {
                     let errorMsg = d.error || 'ytdlp_error';
                     // Simplify complex yt-dlp error messages for the user
-                    if (errorMsg.includes('Unsupported URL')) errorMsg = 'err_unsupported_url';
-                    else if (errorMsg.includes('Unable to download webpage')) errorMsg = 'err_network_error';
-                    else if (errorMsg.includes('Video unavailable')) errorMsg = 'err_video_unavailable';
+                    if (errorMsg.includes('Unsupported URL') || errorMsg.includes('unsupported_url')) errorMsg = 'unsupported_url';
+                    else if (errorMsg.includes('Unable to download webpage') || errorMsg.includes('network_error')) errorMsg = 'network_error';
+                    else if (errorMsg.includes('Video unavailable') || errorMsg.includes('video_unavailable')) errorMsg = 'video_unavailable';
+                    else if (errorMsg.includes('bot_detection') || errorMsg.includes('player response') || errorMsg.includes('player_client')) errorMsg = 'bot_detection';
+                    else if (errorMsg.includes('age_restricted')) errorMsg = 'age_restricted';
                     
                     this.showToast(this.handleCommonError(errorMsg, 'ytdlp_error'), 'error');
                 }
