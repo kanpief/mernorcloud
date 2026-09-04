@@ -147,6 +147,7 @@
     "err_age_restricted": "Video bị giới hạn độ tuổi. Hãy thêm Cookie để tải.",
     "err_already_setup": "Hệ thống đã được thiết lập trước đó!",
     "err_bot_detection": "YouTube yêu cầu xác minh bot hoặc Cookie. Vui lòng tải lên file Cookie để tiếp tục.",
+    "err_cookie_invalid": "Cookie YouTube đã hết hạn hoặc không khớp. Vui lòng xuất lại file Cookie mới từ YouTube.",
     "err_bot_failed": "Lỗi khởi tạo bot khi hệ thống khởi động.",
     "err_bot_offline": "Bot đang ngoại tuyến / Đã tắt.",
     "err_bot_peer_invalid": "Bot chưa được thêm vào Log Group hoặc chưa được cấp quyền gửi tin nhắn.",

@@ -107,6 +107,7 @@ func GetYTDLPFormats(url string, cfg *config.Config, owner string) (*YTDLPInfo, 
 		"--no-playlist",
 		"--no-warnings",
 		"--no-check-certificates",
+		"--no-cache-dir",
 	}
 
 	// Check for user cookie file or global cookie file (auto-restored from DB if needed)
@@ -117,8 +118,8 @@ func GetYTDLPFormats(url string, cfg *config.Config, owner string) (*YTDLPInfo, 
 		hasCookie = true
 	}
 
-	// For YouTube, use mobile clients (android, ios, mweb) which do not require web JS/PO-token
-	if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+	// If no cookies, try mobile client to avoid web JS challenges
+	if (strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be")) && !hasCookie {
 		args = append(args, "--extractor-args", "youtube:player_client=android,ios,mweb")
 	}
 
@@ -162,6 +163,29 @@ func GetYTDLPFormats(url string, cfg *config.Config, owner string) (*YTDLPInfo, 
 	cmd.Env = env
 
 	err := cmd.Run()
+	// If failed on YouTube, retry once with fallback
+	if err != nil && (strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be")) {
+		var retryArgs []string
+		for _, a := range args {
+			if a == "--extractor-args" || a == "youtube:player_client=android,ios,mweb" {
+				continue
+			}
+			retryArgs = append(retryArgs, a)
+		}
+		var retryStdout, retryStderr strings.Builder
+		retryCmd := exec.CommandContext(infoCtx, cfg.YTDLPPath, retryArgs...)
+		retryCmd.Stdout = &retryStdout
+		retryCmd.Stderr = &retryStderr
+		retryCmd.Env = env
+		if retryErr := retryCmd.Run(); retryErr == nil {
+			stdout = retryStdout
+			err = nil
+		} else {
+			stderr = retryStderr
+			err = retryErr
+		}
+	}
+
 	if err != nil {
 		if infoCtx.Err() == context.DeadlineExceeded {
 			return nil, fmt.Errorf("ytdlp_timeout")
@@ -177,6 +201,9 @@ func GetYTDLPFormats(url string, cfg *config.Config, owner string) (*YTDLPInfo, 
 
 		cleanErr := translateYTDLPError(errMsg)
 		if cleanErr != "ytdlp_error" {
+			if cleanErr == "bot_detection" && hasCookie {
+				return nil, fmt.Errorf("cookie_invalid")
+			}
 			return nil, fmt.Errorf("%s", cleanErr)
 		}
 
@@ -309,24 +336,27 @@ func ProcessYTDLPUpload(ctx context.Context, url, formatID, path, taskID, downlo
 		"--no-playlist",
 		"--no-warnings",
 		"--no-check-certificates",
+		"--no-cache-dir",
 		"--concurrent-fragments", "5",
 		"-o", tempPathPattern,
 	}
 
-	// For YouTube, use mobile clients (android, ios, mweb)
-	if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+	// Check for user cookie file or global cookie file (auto-restored from DB if needed)
+	cookieFile := EnsureUserCookie(owner, cfg)
+	hasCookie := false
+	if cookieFile != "" {
+		args = append(args, "--cookies", cookieFile)
+		hasCookie = true
+	}
+
+	// For YouTube, if no cookies, use mobile clients
+	if (strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be")) && !hasCookie {
 		args = append(args, "--extractor-args", "youtube:player_client=android,ios,mweb")
 	}
 
 	// Audio conversion logic
 	if downloadType == "audio" {
 		args = append(args, "--extract-audio", "--audio-format", "mp3", "--embed-thumbnail", "--add-metadata", "--convert-thumbnails", "jpg")
-	}
-
-	// Check for user cookie file or global cookie file (auto-restored from DB if needed)
-	cookieFile := EnsureUserCookie(owner, cfg)
-	if cookieFile != "" {
-		args = append(args, "--cookies", cookieFile)
 	}
 
 	// Format selection flags must come BEFORE the URL

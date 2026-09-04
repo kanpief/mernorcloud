@@ -147,6 +147,7 @@
     "err_age_restricted": "This video is age-restricted. Please add Cookies to download.",
     "err_already_setup": "System is already set up!",
     "err_bot_detection": "YouTube requires bot verification or Cookies. Please upload your Cookie file in URL Downloader to continue.",
+    "err_cookie_invalid": "YouTube Cookie has expired or is invalid. Please export a fresh Cookie from YouTube.",
     "err_bot_failed": "Bot failed to initialize during startup.",
     "err_bot_offline": "Bot is offline / disabled.",
     "err_bot_peer_invalid": "Bot is not added to the Log Group or lacks permission to send messages.",
