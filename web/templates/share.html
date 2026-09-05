@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>{{ .filename }} - TeleCloud</title>
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+    <title>{{ .filename }} - {{ if .site_name }}{{ .site_name }}{{ else }}TeleCloud{{ end }}</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
     
     <link rel="preload" href="/static/css/tailwind.css?v={{ .version }}" as="style">
     <link rel="preload" href="/static/css/style.min.css?v={{ .version }}" as="style">
@@ -83,12 +82,16 @@
             <div class="relative w-20 h-20 flex items-center justify-center">
                 <!-- Inner spinner -->
                 <div class="preloader-spinner"></div>
-                <div class="absolute w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <div class="absolute w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25 overflow-hidden p-1.5">
+                    {{ if .has_custom_logo }}
+                    <img src="/api/custom/logo" alt="Logo" class="max-w-full max-h-full object-contain">
+                    {{ else }}
                     <i class="fa-solid fa-cloud text-white text-base"></i>
+                    {{ end }}
                 </div>
             </div>
             <div class="flex flex-col items-center gap-1 text-center px-4">
-                <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">TeleCloud OS</h1>
+                <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">{{ if .site_name }}{{ .site_name }}{{ else }}TeleCloud OS{{ end }}</h1>
                 <span class="text-xs text-slate-400 dark:text-slate-500 font-medium">Loading share file...</span>
             </div>
         </div>
@@ -117,10 +120,14 @@
             
             <div class="flex items-center justify-between mb-8 opacity-80 relative z-[200]">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 overflow-hidden p-1.5">
+                        {{ if .has_custom_logo }}
+                        <img src="/api/custom/logo" alt="Logo" class="max-w-full max-h-full object-contain">
+                        {{ else }}
                         <i class="fa-solid fa-cloud text-xl text-white"></i>
+                        {{ end }}
                     </div>
-                    <h1 class="text-xl font-bold tracking-tight text-slate-800 dark:text-white">TeleCloud</h1>
+                    <h1 class="text-xl font-bold tracking-tight text-slate-800 dark:text-white">{{ if .site_name }}{{ .site_name }}{{ else }}TeleCloud{{ end }}</h1>
                 </div>
                 <!-- Language Dropdown -->
                 <div class="relative z-[110]" x-data="{ open: false }">
@@ -161,7 +168,7 @@
                         <p id="file-type-name" class="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider transition-all duration-300" 
                             x-text="t(typeKey) + (typeExt ? ' (' + typeExt + ')' : '')"></p>
                         {{ if not .allow_download }}
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 whitespace-nowrap shrink-0">
                             <i class="fa-solid fa-eye text-[11px]"></i>
                             <span x-text="t('view_only_mode')"></span>
                         </span>

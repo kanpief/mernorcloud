@@ -146,6 +146,15 @@ func (h *Handler) handleGetIndex(c *gin.Context) {
 			}
 			return f
 		}(),
+		"site_name": func() string {
+			s := database.GetSetting("site_name")
+			if s == "" {
+				return "TeleCloud"
+			}
+			return s
+		}(),
+		"has_custom_logo":    database.GetSetting("custom_logo") != "",
+		"has_custom_favicon": database.GetSetting("custom_favicon") != "",
 	})
 }
 

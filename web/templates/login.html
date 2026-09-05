@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TeleCloud - Login</title>
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+    <title>{{ if .site_name }}{{ .site_name }} - Login{{ else }}TeleCloud - Login{{ end }}</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
 
     <link rel="stylesheet" href="/static/css/tailwind.css?v={{ .version }}">
     <link rel="stylesheet" href="/static/css/style.min.css?v={{ .version }}">
@@ -194,10 +194,14 @@
             </div>
             <div class="text-center mb-8">
                 <div
-                    class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4">
+                    class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4 overflow-hidden p-2">
+                    {{ if .has_custom_logo }}
+                    <img src="/api/custom/logo" alt="Logo" class="max-w-full max-h-full object-contain">
+                    {{ else }}
                     <i class="fa-solid fa-cloud text-3xl text-white"></i>
+                    {{ end }}
                 </div>
-                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">TeleCloud OS</h2>
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{{ if .site_name }}{{ .site_name }}{{ else }}TeleCloud OS{{ end }}</h2>
             </div>
             <form @submit.prevent="login">
                 <input type="text" autocomplete="username" x-model="username"

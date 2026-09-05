@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TeleCloud OS</title>
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+    <title>{{ if .site_name }}{{ .site_name }}{{ else }}TeleCloud OS{{ end }}</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
 
     <link rel="preload" href="/static/css/tailwind.css?v={{ .version }}" as="style">
     <link rel="preload" href="/static/css/style.min.css?v={{ .version }}" as="style">
@@ -88,12 +88,16 @@
             <div class="relative w-20 h-20 flex items-center justify-center">
                 <!-- Inner spinner -->
                 <div class="preloader-spinner"></div>
-                <div class="absolute w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <div class="absolute w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25 overflow-hidden p-1.5">
+                    {{ if .has_custom_logo }}
+                    <img src="/api/custom/logo" alt="Logo" class="max-w-full max-h-full object-contain">
+                    {{ else }}
                     <i class="fa-solid fa-cloud text-white text-base"></i>
+                    {{ end }}
                 </div>
             </div>
             <div class="flex flex-col items-center gap-1 text-center px-4">
-                <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">TeleCloud OS</h1>
+                <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">{{ if .site_name }}{{ .site_name }}{{ else }}TeleCloud OS{{ end }}</h1>
                 <span class="text-xs text-slate-400 dark:text-slate-500 font-medium">Loading workspace files...</span>
             </div>
         </div>
@@ -1092,9 +1096,13 @@
             <header
                 class="flex items-center justify-between p-3 md:px-6 md:py-4 border-b border-slate-200 dark:border-white/5 bg-white/30 dark:bg-slate-900/30 gap-4 shrink-0 relative z-[200]">
                 <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 cursor-pointer" @click="currentTab = 'files'; navigateTo('/')">
+                        {{ if .has_custom_logo }}
+                        <img src="/api/custom/logo" alt="Logo" class="h-7 w-auto max-w-[120px] object-contain rounded-md drop-shadow-sm">
+                        {{ else }}
                         <i class="fa-solid fa-cloud text-blue-600 dark:text-blue-400 text-2xl"></i>
-                        <span class="font-bold text-lg md:block">TeleCloud</span>
+                        {{ end }}
+                        <span class="font-bold text-lg md:block">{{ if .site_name }}{{ .site_name }}{{ else }}TeleCloud{{ end }}</span>
                     </div>
                     <div class="hidden md:flex items-center gap-1 bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl">
                         <button @click="currentTab = 'files'"
@@ -1314,6 +1322,138 @@
 
                     <div class="grid grid-cols-1 gap-6" :class="isAdmin ? 'md:grid-cols-2' : ''">
                         <div class="flex flex-col gap-6">
+                            <!-- Branding & Logo Settings Card (Admin Only) -->
+                            <div class="glass-panel p-6 rounded-3xl border border-white/10"
+                                x-show="isAdmin" x-cloak>
+                                <div class="flex items-center justify-between mb-2">
+                                    <h3 class="text-lg font-bold flex items-center gap-2">
+                                        <i class="fa-solid fa-palette text-blue-500"></i>
+                                        <span x-text="t('branding_settings')">Logo & Branding</span>
+                                    </h3>
+                                </div>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mb-5" x-text="t('branding_desc')">
+                                    Customize your site logo, favicon, and brand title.
+                                </p>
+
+                                <form @submit.prevent="saveBranding" class="space-y-5">
+                                    <!-- Site Name Field -->
+                                    <div>
+                                        <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5 block" x-text="t('site_name')">Brand Name / Site Title</label>
+                                        <div class="relative group/input">
+                                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 group-focus-within/input:text-blue-500 transition-colors pointer-events-none">
+                                                <i class="fa-solid fa-signature text-xs"></i>
+                                            </span>
+                                            <input type="text" x-model="brandingForm.siteName" :placeholder="t('site_name_placeholder')"
+                                                class="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 text-xs text-slate-900 dark:text-white transition-all shadow-sm">
+                                        </div>
+                                    </div>
+
+                                    <!-- Logo Setting Section -->
+                                    <div class="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/50 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <div>
+                                                <label class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                                    <i class="fa-solid fa-image text-blue-500"></i>
+                                                    <span x-text="t('custom_logo')">System Logo</span>
+                                                </label>
+                                                <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5" x-text="t('custom_logo_desc')"></p>
+                                            </div>
+                                            <template x-if="brandingForm.hasCustomLogo || brandingForm.logoPreview">
+                                                <button type="button" @click="resetBrandingLogo()"
+                                                    class="px-2.5 py-1 text-[11px] font-semibold text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors flex items-center gap-1">
+                                                    <i class="fa-solid fa-rotate-left"></i>
+                                                    <span x-text="t('reset_default')">Reset</span>
+                                                </button>
+                                            </template>
+                                        </div>
+
+                                        <!-- Preview Box -->
+                                        <div class="flex items-center gap-3 p-3 bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                                            <div class="w-16 h-12 rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center justify-center border border-dashed border-slate-300 dark:border-slate-700 overflow-hidden shrink-0">
+                                                <template x-if="brandingForm.logoPreview">
+                                                    <img :src="brandingForm.logoPreview" alt="Logo Preview" class="max-h-full max-w-full object-contain p-1">
+                                                </template>
+                                                <template x-if="!brandingForm.logoPreview">
+                                                    <i class="fa-solid fa-cloud text-blue-500 text-xl"></i>
+                                                </template>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <span class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1" x-text="t('logo_preview')">Logo Preview</span>
+                                                <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" class="hidden" x-ref="logoFileInput" @change="onLogoFileSelected($event)">
+                                                <button type="button" @click="$refs.logoFileInput.click()"
+                                                    class="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5">
+                                                    <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                                                    <span x-text="t('upload_image')">Upload File</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Direct URL input -->
+                                        <div>
+                                            <input type="url" x-model="brandingForm.logoUrl" :placeholder="t('image_url_placeholder')"
+                                                @input="if(brandingForm.logoUrl) brandingForm.logoPreview = brandingForm.logoUrl"
+                                                class="w-full px-3 py-2 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-xs font-mono text-slate-900 dark:text-white transition-all shadow-sm">
+                                        </div>
+                                    </div>
+
+                                    <!-- Favicon Setting Section -->
+                                    <div class="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/50 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <div>
+                                                <label class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                                    <i class="fa-solid fa-globe text-blue-500"></i>
+                                                    <span x-text="t('custom_favicon')">Favicon (Tab Icon)</span>
+                                                </label>
+                                                <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5" x-text="t('custom_favicon_desc')"></p>
+                                            </div>
+                                            <template x-if="brandingForm.hasCustomFavicon || brandingForm.faviconPreview">
+                                                <button type="button" @click="resetBrandingFavicon()"
+                                                    class="px-2.5 py-1 text-[11px] font-semibold text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors flex items-center gap-1">
+                                                    <i class="fa-solid fa-rotate-left"></i>
+                                                    <span x-text="t('reset_default')">Reset</span>
+                                                </button>
+                                            </template>
+                                        </div>
+
+                                        <!-- Preview Box -->
+                                        <div class="flex items-center gap-3 p-3 bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                                            <div class="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center justify-center border border-dashed border-slate-300 dark:border-slate-700 overflow-hidden shrink-0">
+                                                <template x-if="brandingForm.faviconPreview">
+                                                    <img :src="brandingForm.faviconPreview" alt="Favicon Preview" class="w-8 h-8 object-contain">
+                                                </template>
+                                                <template x-if="!brandingForm.faviconPreview">
+                                                    <img src="/static/favicon.ico" alt="Default Favicon" class="w-8 h-8 object-contain">
+                                                </template>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <span class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1" x-text="t('favicon_preview')">Favicon Preview</span>
+                                                <input type="file" accept="image/x-icon,image/png,image/svg+xml" class="hidden" x-ref="faviconFileInput" @change="onFaviconFileSelected($event)">
+                                                <button type="button" @click="$refs.faviconFileInput.click()"
+                                                    class="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5">
+                                                    <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                                                    <span x-text="t('upload_image')">Upload File</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Direct URL input -->
+                                        <div>
+                                            <input type="url" x-model="brandingForm.faviconUrl" :placeholder="t('image_url_placeholder')"
+                                                @input="if(brandingForm.faviconUrl) brandingForm.faviconPreview = brandingForm.faviconUrl"
+                                                class="w-full px-3 py-2 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-xs font-mono text-slate-900 dark:text-white transition-all shadow-sm">
+                                        </div>
+                                    </div>
+
+                                    <!-- Submit Button -->
+                                    <button type="submit" :disabled="brandingForm.isSaving"
+                                        class="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-bold transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 disabled:opacity-50">
+                                        <i class="fa-solid fa-spinner fa-spin" x-show="brandingForm.isSaving"></i>
+                                        <i class="fa-solid fa-circle-check" x-show="!brandingForm.isSaving"></i>
+                                        <span x-text="t('save_changes')">Save Changes</span>
+                                    </button>
+                                </form>
+                            </div>
+
                             <!-- System Info Card -->
                             <div class="glass-panel p-6 rounded-3xl border border-white/10"
                                 x-show="isAdmin && storageTotal > 0" x-cloak>

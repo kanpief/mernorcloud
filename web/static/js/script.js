@@ -508,6 +508,18 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
             botPoolUploadFolder: initialBotPoolUploadFolder || 'TelegramUpload'
         },
         botUserSettingsLoading: false,
+        brandingForm: {
+            siteName: '',
+            logoUrl: '',
+            faviconUrl: '',
+            hasCustomLogo: false,
+            hasCustomFavicon: false,
+            logoPreview: '',
+            faviconPreview: '',
+            logoFile: null,
+            faviconFile: null,
+            isSaving: false
+        },
         botLoading: false,
         restartingApp: false,
         childSuccessModal: {
@@ -719,6 +731,137 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
                 this.showToast(err.message, 'error');
             } finally {
                 this.botUserSettingsLoading = false;
+            }
+        },
+        async loadBranding() {
+            try {
+                const res = await fetch('/api/settings/branding');
+                if (res.ok) {
+                    const data = await res.json();
+                    this.brandingForm.siteName = data.site_name || '';
+                    this.brandingForm.hasCustomLogo = !!data.has_custom_logo;
+                    this.brandingForm.hasCustomFavicon = !!data.has_custom_favicon;
+                    this.brandingForm.logoPreview = data.has_custom_logo ? '/api/custom/logo?t=' + Date.now() : '';
+                    this.brandingForm.faviconPreview = data.has_custom_favicon ? '/api/custom/favicon?t=' + Date.now() : '';
+                }
+            } catch (e) {
+                console.error('Failed to load branding', e);
+            }
+        },
+        onLogoFileSelected(e) {
+            const file = e.target.files && e.target.files[0];
+            if (file) {
+                this.brandingForm.logoFile = file;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    this.brandingForm.logoPreview = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        },
+        onFaviconFileSelected(e) {
+            const file = e.target.files && e.target.files[0];
+            if (file) {
+                this.brandingForm.faviconFile = file;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    this.brandingForm.faviconPreview = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        },
+        async saveBranding() {
+            this.brandingForm.isSaving = true;
+            try {
+                const fd = new FormData();
+                fd.append('site_name', this.brandingForm.siteName || '');
+                if (this.brandingForm.logoFile) {
+                    fd.append('logo_file', this.brandingForm.logoFile);
+                } else if (this.brandingForm.logoUrl) {
+                    fd.append('logo_url', this.brandingForm.logoUrl.trim());
+                }
+                if (this.brandingForm.faviconFile) {
+                    fd.append('favicon_file', this.brandingForm.faviconFile);
+                } else if (this.brandingForm.faviconUrl) {
+                    fd.append('favicon_url', this.brandingForm.faviconUrl.trim());
+                }
+
+                const res = await fetch('/api/settings/branding', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': TeleCloud.getCsrfToken() },
+                    body: fd
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    this.brandingForm.hasCustomLogo = !!data.has_custom_logo;
+                    this.brandingForm.hasCustomFavicon = !!data.has_custom_favicon;
+                    this.brandingForm.logoFile = null;
+                    this.brandingForm.faviconFile = null;
+                    this.brandingForm.logoUrl = '';
+                    this.brandingForm.faviconUrl = '';
+                    this.brandingForm.logoPreview = data.has_custom_logo ? '/api/custom/logo?t=' + Date.now() : '';
+                    this.brandingForm.faviconPreview = data.has_custom_favicon ? '/api/custom/favicon?t=' + Date.now() : '';
+                    
+                    // Update favicon in browser tab dynamically
+                    const favLinks = document.querySelectorAll("link[rel*='icon']");
+                    favLinks.forEach(link => {
+                        link.href = '/api/custom/favicon?t=' + Date.now();
+                    });
+
+                    this.showToast(this.t('toast_branding_saved') || 'Branding settings saved successfully!', 'success');
+                } else {
+                    const data = await res.json();
+                    this.showToast(this.handleCommonError(data.error, 'status_error'), 'error');
+                }
+            } catch (e) {
+                this.showToast(this.t('conn_error') || 'Connection error!', 'error');
+            } finally {
+                this.brandingForm.isSaving = false;
+            }
+        },
+        async resetBrandingLogo() {
+            try {
+                const fd = new FormData();
+                fd.append('reset_logo', 'true');
+                const res = await fetch('/api/settings/branding', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': TeleCloud.getCsrfToken() },
+                    body: fd
+                });
+                if (res.ok) {
+                    this.brandingForm.hasCustomLogo = false;
+                    this.brandingForm.logoFile = null;
+                    this.brandingForm.logoUrl = '';
+                    this.brandingForm.logoPreview = '';
+                    this.showToast(this.t('toast_settings_saved') || 'Settings saved', 'success');
+                }
+            } catch (e) {
+                this.showToast(this.t('conn_error') || 'Connection error!', 'error');
+            }
+        },
+        async resetBrandingFavicon() {
+            try {
+                const fd = new FormData();
+                fd.append('reset_favicon', 'true');
+                const res = await fetch('/api/settings/branding', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': TeleCloud.getCsrfToken() },
+                    body: fd
+                });
+                if (res.ok) {
+                    this.brandingForm.hasCustomFavicon = false;
+                    this.brandingForm.faviconFile = null;
+                    this.brandingForm.faviconUrl = '';
+                    this.brandingForm.faviconPreview = '';
+                    // Update favicon back to default
+                    const favLinks = document.querySelectorAll("link[rel*='icon']");
+                    favLinks.forEach(link => {
+                        link.href = '/static/favicon.ico?t=' + Date.now();
+                    });
+                    this.showToast(this.t('toast_settings_saved') || 'Settings saved', 'success');
+                }
+            } catch (e) {
+                this.showToast(this.t('conn_error') || 'Connection error!', 'error');
             }
         },
         async restartApp() {
@@ -1909,6 +2052,8 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
                 
                 if (!this.isAdmin) {
                     this.fetchChildAPIKey();
+                } else {
+                    this.loadBranding();
                 }
 
                 // Add hasError to existing tasks if any

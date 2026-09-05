@@ -1,9 +1,13 @@
 package api
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io"
+	"io/fs"
 	"net/http"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -755,4 +759,177 @@ func (h *Handler) handlePostBotPool(c *gin.Context) {
 func (h *Handler) handlePostRestart(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "restarting"})
 	go h.restartApp()
+}
+
+func (h *Handler) handleGetBranding(c *gin.Context) {
+	siteName := database.GetSetting("site_name")
+	if siteName == "" {
+		siteName = "TeleCloud"
+	}
+	customLogo := database.GetSetting("custom_logo")
+	customFavicon := database.GetSetting("custom_favicon")
+
+	c.JSON(http.StatusOK, gin.H{
+		"site_name":           siteName,
+		"custom_logo":         customLogo,
+		"custom_favicon":      customFavicon,
+		"has_custom_logo":    customLogo != "",
+		"has_custom_favicon": customFavicon != "",
+	})
+}
+
+func (h *Handler) handlePostBranding(c *gin.Context) {
+	if !c.GetBool("is_admin") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	siteName := strings.TrimSpace(c.PostForm("site_name"))
+	if siteName != "" {
+		database.SetSetting("site_name", siteName)
+	}
+
+	resetLogo := c.PostForm("reset_logo") == "true"
+	if resetLogo {
+		database.SetSetting("custom_logo", "")
+	} else {
+		logoURL := strings.TrimSpace(c.PostForm("logo_url"))
+		if logoURL != "" {
+			database.SetSetting("custom_logo", logoURL)
+		} else {
+			file, err := c.FormFile("logo_file")
+			if err == nil && file != nil {
+				if file.Size > 5*1024*1024 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "err_file_too_large"})
+					return
+				}
+				f, err := file.Open()
+				if err == nil {
+					defer f.Close()
+					data, err := io.ReadAll(f)
+					if err == nil && len(data) > 0 {
+						mimeType := http.DetectContentType(data)
+						ext := strings.ToLower(filepath.Ext(file.Filename))
+						if ext == ".svg" {
+							mimeType = "image/svg+xml"
+						}
+						encoded := fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data))
+						database.SetSetting("custom_logo", encoded)
+					}
+				}
+			}
+		}
+	}
+
+	resetFavicon := c.PostForm("reset_favicon") == "true"
+	if resetFavicon {
+		database.SetSetting("custom_favicon", "")
+	} else {
+		faviconURL := strings.TrimSpace(c.PostForm("favicon_url"))
+		if faviconURL != "" {
+			database.SetSetting("custom_favicon", faviconURL)
+		} else {
+			file, err := c.FormFile("favicon_file")
+			if err == nil && file != nil {
+				if file.Size > 2*1024*1024 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "err_file_too_large"})
+					return
+				}
+				f, err := file.Open()
+				if err == nil {
+					defer f.Close()
+					data, err := io.ReadAll(f)
+					if err == nil && len(data) > 0 {
+						mimeType := http.DetectContentType(data)
+						ext := strings.ToLower(filepath.Ext(file.Filename))
+						if ext == ".ico" {
+							mimeType = "image/x-icon"
+						} else if ext == ".svg" {
+							mimeType = "image/svg+xml"
+						}
+						encoded := fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data))
+						database.SetSetting("custom_favicon", encoded)
+					}
+				}
+			}
+		}
+	}
+
+	siteName = database.GetSetting("site_name")
+	if siteName == "" {
+		siteName = "TeleCloud"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":              "success",
+		"site_name":           siteName,
+		"has_custom_logo":    database.GetSetting("custom_logo") != "",
+		"has_custom_favicon": database.GetSetting("custom_favicon") != "",
+	})
+}
+
+func (h *Handler) handleGetLogo(c *gin.Context) {
+	customLogo := database.GetSetting("custom_logo")
+	if customLogo == "" {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	if strings.HasPrefix(customLogo, "http://") || strings.HasPrefix(customLogo, "https://") {
+		c.Redirect(http.StatusFound, customLogo)
+		return
+	}
+
+	if strings.HasPrefix(customLogo, "data:") {
+		parts := strings.SplitN(customLogo, ",", 2)
+		if len(parts) == 2 {
+			mimeType := "image/png"
+			if semi := strings.Index(parts[0], ";"); semi > 5 {
+				mimeType = parts[0][5:semi]
+			}
+			data, err := base64.StdEncoding.DecodeString(parts[1])
+			if err == nil {
+				c.Header("Cache-Control", "public, max-age=86400")
+				c.Data(http.StatusOK, mimeType, data)
+				return
+			}
+		}
+	}
+
+	c.Status(http.StatusNotFound)
+}
+
+func (h *Handler) handleGetFavicon(c *gin.Context) {
+	customFavicon := database.GetSetting("custom_favicon")
+	if customFavicon != "" {
+		if strings.HasPrefix(customFavicon, "http://") || strings.HasPrefix(customFavicon, "https://") {
+			c.Redirect(http.StatusFound, customFavicon)
+			return
+		}
+		if strings.HasPrefix(customFavicon, "data:") {
+			parts := strings.SplitN(customFavicon, ",", 2)
+			if len(parts) == 2 {
+				mimeType := "image/x-icon"
+				if semi := strings.Index(parts[0], ";"); semi > 5 {
+					mimeType = parts[0][5:semi]
+				}
+				data, err := base64.StdEncoding.DecodeString(parts[1])
+				if err == nil {
+					c.Header("Cache-Control", "public, max-age=86400")
+					c.Data(http.StatusOK, mimeType, data)
+					return
+				}
+			}
+		}
+	}
+
+	// Fallback to embedded favicon
+	data, err := fs.ReadFile(h.contentFS, "web/static/favicon.ico")
+	if err == nil {
+		c.Header("Cache-Control", "public, max-age=86400")
+		c.Data(http.StatusOK, "image/x-icon", data)
+		return
+	}
+
+	c.Status(http.StatusNotFound)
 }

@@ -95,11 +95,21 @@ func (h *Handler) handleGetSharedFile(c *gin.Context) {
 		return
 	}
 
+	siteName := database.GetSetting("site_name")
+	if siteName == "" {
+		siteName = "TeleCloud"
+	}
+	hasCustomLogo := database.GetSetting("custom_logo") != ""
+	hasCustomFavicon := database.GetSetting("custom_favicon") != ""
+
 	if !h.checkShareAuth(c, item) {
 		c.HTML(http.StatusOK, "share_login.html", gin.H{
-			"filename": item.Filename,
-			"token":    token,
-			"version":  h.cfg.Version,
+			"filename":           item.Filename,
+			"token":              token,
+			"version":            h.cfg.Version,
+			"site_name":          siteName,
+			"has_custom_logo":    hasCustomLogo,
+			"has_custom_favicon": hasCustomFavicon,
 		})
 		return
 	}
@@ -110,13 +120,16 @@ func (h *Handler) handleGetSharedFile(c *gin.Context) {
 
 	if item.IsFolder {
 		c.HTML(http.StatusOK, "share_folder.html", gin.H{
-			"filename":        item.Filename,
-			"created_at":      item.CreatedAt.Format("2006-01-02 15:04:05"),
-			"token":           token,
-			"version":         h.cfg.Version,
-			"share_views":     item.ShareViews,
-			"share_downloads": item.ShareDownloads,
-			"allow_download":  item.AllowDownload,
+			"filename":           item.Filename,
+			"created_at":         item.CreatedAt.Format("2006-01-02 15:04:05"),
+			"token":              token,
+			"version":            h.cfg.Version,
+			"share_views":        item.ShareViews,
+			"share_downloads":    item.ShareDownloads,
+			"allow_download":     item.AllowDownload,
+			"site_name":          siteName,
+			"has_custom_logo":    hasCustomLogo,
+			"has_custom_favicon": hasCustomFavicon,
 		})
 		return
 	}
@@ -129,17 +142,20 @@ func (h *Handler) handleGetSharedFile(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "share.html", gin.H{
-		"id":              item.ID,
-		"filename":        item.Filename,
-		"size":            item.Size,
-		"formatted_size":  formatBytes(item.Size),
-		"created_at":      item.CreatedAt.Format("2006-01-02 15:04:05"),
-		"token":           token,
-		"has_thumb":       hasThumb,
-		"version":         h.cfg.Version,
-		"share_views":     item.ShareViews,
-		"share_downloads": item.ShareDownloads,
-		"allow_download":  item.AllowDownload,
+		"id":                 item.ID,
+		"filename":           item.Filename,
+		"size":               item.Size,
+		"formatted_size":     formatBytes(item.Size),
+		"created_at":         item.CreatedAt.Format("2006-01-02 15:04:05"),
+		"token":              token,
+		"has_thumb":          hasThumb,
+		"version":            h.cfg.Version,
+		"share_views":        item.ShareViews,
+		"share_downloads":    item.ShareDownloads,
+		"allow_download":     item.AllowDownload,
+		"site_name":          siteName,
+		"has_custom_logo":    hasCustomLogo,
+		"has_custom_favicon": hasCustomFavicon,
 	})
 }
 

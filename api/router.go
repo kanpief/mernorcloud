@@ -38,6 +38,13 @@ func SetupRouter(cfg *config.Config, contentFS fs.FS, startTG func(cfg *config.C
 	r.Use(gzipMiddleware())
 	r.Use(setupCheckMiddleware())
 
+	// Custom Branding & Favicon Routes
+	r.GET("/favicon.ico", h.handleGetFavicon)
+	r.GET("/static/favicon.ico", h.handleGetFavicon)
+	r.GET("/api/custom/favicon", h.handleGetFavicon)
+	r.GET("/api/custom/logo", h.handleGetLogo)
+	r.GET("/api/settings/branding", h.handleGetBranding)
+
 	// WebDAV Route
 	webdavH := gin.WrapH(webdav.NewHandler(cfg))
 	// S3 Route
@@ -152,6 +159,7 @@ func SetupRouter(cfg *config.Config, contentFS fs.FS, startTG func(cfg *config.C
 		api.POST("/settings/backup/toggle", h.handlePostBackupToggle)
 		api.POST("/settings/restore", h.handlePostRestore)
 		api.POST("/settings/restart", h.handlePostRestart)
+		api.POST("/settings/branding", h.handlePostBranding)
 
 		// Users
 		api.GET("/users", h.handleGetUsers)
