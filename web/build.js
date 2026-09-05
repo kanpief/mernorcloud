@@ -113,11 +113,17 @@ async function main() {
   function buildTailwind() {
     return new Promise((resolve, reject) => {
       const isWin = process.platform === 'win32';
-      const cmd = isWin ? 'npx.cmd' : 'npx';
-      execFile(cmd, ['@tailwindcss/cli', '-i', 'static/css/input.css', '-o', 'static/css/tailwind.css', '--minify'],
-        { stdio: 'inherit', shell: isWin },
-        (err) => err ? reject(err) : resolve()
-      );
+      const localBin = path.resolve('node_modules', '.bin', isWin ? 'tailwindcss.cmd' : 'tailwindcss');
+      const args = ['-i', 'static/css/input.css', '-o', 'static/css/tailwind.css', '--minify'];
+
+      if (fs.existsSync(localBin)) {
+        execFile(localBin, args, { stdio: 'inherit', shell: isWin }, (err) => (err ? reject(err) : resolve()));
+      } else {
+        const isBun = typeof process.versions.bun !== 'undefined';
+        const runner = isBun ? 'bun' : (isWin ? 'npx.cmd' : 'bun');
+        const runnerArgs = runner === 'bun' ? ['run', 'tailwindcss', ...args] : ['@tailwindcss/cli', ...args];
+        execFile(runner, runnerArgs, { stdio: 'inherit', shell: isWin }, (err) => (err ? reject(err) : resolve()));
+      }
     });
   }
 
