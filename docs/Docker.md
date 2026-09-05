@@ -1,66 +1,21 @@
 # 🐳 Docker Deployment / Triển khai với Docker
 
-This is the recommended method for servers. The Docker image (Alpine-based) includes **FFmpeg and yt-dlp built-in**.
-Đây là cách triển khai được khuyến nghị cho máy chủ. Image Docker (Alpine) đã tích hợp sẵn **FFmpeg và yt-dlp**.
+Hướng dẫn triển khai MernorCloud (Zpiltk Edition) bằng Docker và Docker Compose. Image đã được tối ưu và tích hợp sẵn **FFmpeg** và **yt-dlp**.  
+Comprehensive guide for deploying MernorCloud (Zpiltk Edition) with Docker and Docker Compose.
 
 ---
 
 ## 🇻🇳 Tiếng Việt
 
-### Phương pháp 1: Chạy bằng lệnh Docker (Nhanh)
+### 1. Triển khai nhanh bằng lệnh Docker Run
 
-1. Tải image: `docker pull ghcr.io/dabeecao/telecloud-go`
-2. Cấu hình thư mục và `.env`:
-   ```bash
-   mkdir telecloud && cd telecloud
-   curl -O https://raw.githubusercontent.com/dabeecao/telecloud-go/main/env.example
-   mv env.example .env
-   # Điền LOG_GROUP_ID vào .env
-   ```
-3. Khởi động:
-   ```bash
-   mkdir -p data && sudo chmod 777 data
-   sudo docker run -d \
-       --name telecloud \
-       --restart unless-stopped \
-       -p 8091:8091 \
-       -v "$(pwd)/data:/app/data" \
-       --env-file .env \
-       -e DATABASE_PATH=/app/data/database.db \
-       -e THUMBS_DIR=/app/data/thumbs \
-       -e TEMP_DIR=/app/data/temp \
-       --user 65532:65532 \
-       ghcr.io/dabeecao/telecloud-go
-   ```
-
-### Phương pháp 2: Docker Compose (Khuyên dùng)
-
-1. Tải file cấu hình:
-   ```bash
-   mkdir telecloud && cd telecloud
-   curl -O https://raw.githubusercontent.com/dabeecao/telecloud-go/main/docker-compose.yml
-   curl -O https://raw.githubusercontent.com/dabeecao/telecloud-go/main/env.example
-   mv env.example .env
-   ```
-2. Điền thông tin vào `.env` (LOG_GROUP_ID...).
-3. Khởi động: `sudo docker compose up -d`
-
-#### Các lệnh quản lý:
-*   Xem log: `sudo docker compose logs -f`
-*   Dừng: `sudo docker compose stop`
-*   Cập nhật: `sudo docker compose pull && sudo docker compose up -d`
-*   Xóa container: `sudo docker compose down`
-
----
-
-## 🇺🇸 English
-
-### Method 1: Single Container (Quick)
 ```bash
-# Prepare directory and run
-mkdir -p data && sudo chmod 777 data
-sudo docker run -d \
-    --name telecloud \
+# Tạo thư mục dữ liệu
+mkdir -p data && chmod 777 data
+
+# Khởi chạy container
+docker run -d \
+    --name mernorcloud \
     --restart unless-stopped \
     -p 8091:8091 \
     -v "$(pwd)/data:/app/data" \
@@ -69,14 +24,75 @@ sudo docker run -d \
     -e THUMBS_DIR=/app/data/thumbs \
     -e TEMP_DIR=/app/data/temp \
     --user 65532:65532 \
-    ghcr.io/dabeecao/telecloud-go
+    ghcr.io/kanpief/mernorcloud:latest
 ```
 
-### Method 2: Docker Compose (Recommended)
-1. Download `docker-compose.yml` and `.env`.
-2. Fill in the required fields in `.env`.
-3. Run: `sudo docker compose up -d`
+---
 
-#### Useful Commands:
-* `sudo docker compose logs -f`
-* `sudo docker compose pull && sudo docker compose up -d`
+### 2. Triển khai bằng Docker Compose (Khuyên dùng)
+
+1. Tải hoặc tạo tệp `docker-compose.yml`:
+   ```yaml
+   services:
+     mernorcloud:
+       image: ghcr.io/kanpief/mernorcloud:latest
+       container_name: mernorcloud
+       restart: unless-stopped
+       ports:
+         - "8091:8091"
+       env_file:
+         - .env
+       user: "65532:65532"
+       environment:
+         - DATABASE_PATH=/app/data/database.db
+         - THUMBS_DIR=/app/data/thumbs
+         - TEMP_DIR=/app/data/temp
+         - FFMPEG_PATH=/usr/bin/ffmpeg
+         - YTDLP_PATH=/usr/local/bin/yt-dlp
+         - TORRENT_PATH=/usr/bin/aria2c
+       volumes:
+         - ./data:/app/data
+   ```
+
+2. Tạo tệp `.env` cấu hình từ mẫu `env.example`.
+3. Khởi động dịch vụ:
+   ```bash
+   docker compose up -d
+   ```
+
+#### Các lệnh quản trị hữu ích:
+* **Xem nhật ký**: `docker compose logs -f`
+* **Dừng dịch vụ**: `docker compose stop`
+* **Cập nhật image**: `docker compose pull && docker compose up -d`
+* **Xóa container**: `docker compose down`
+
+---
+
+## 🇺🇸 English
+
+### 1. Single Container (Quick Start)
+
+```bash
+mkdir -p data && chmod 777 data
+
+docker run -d \
+    --name mernorcloud \
+    --restart unless-stopped \
+    -p 8091:8091 \
+    -v "$(pwd)/data:/app/data" \
+    --env-file .env \
+    -e DATABASE_PATH=/app/data/database.db \
+    -e THUMBS_DIR=/app/data/thumbs \
+    -e TEMP_DIR=/app/data/temp \
+    --user 65532:65532 \
+    ghcr.io/kanpief/mernorcloud:latest
+```
+
+---
+
+### 2. Docker Compose (Recommended)
+
+Run with:
+```bash
+docker compose up -d
+```

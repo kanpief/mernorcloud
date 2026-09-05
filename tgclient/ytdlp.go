@@ -110,7 +110,7 @@ func GetYTDLPFormats(url string, cfg *config.Config, owner string) (*YTDLPInfo, 
 		"--no-cache-dir",
 	}
 
-	// Check for user cookie file or global cookie file (auto-restored from DB if needed)
+	// Check for user cookie file (auto-restored from DB if needed)
 	cookieFile := EnsureUserCookie(owner, cfg)
 	hasCookie := false
 	if cookieFile != "" {
@@ -341,7 +341,7 @@ func ProcessYTDLPUpload(ctx context.Context, url, formatID, path, taskID, downlo
 		"-o", tempPathPattern,
 	}
 
-	// Check for user cookie file or global cookie file (auto-restored from DB if needed)
+	// Check for user cookie file (auto-restored from DB if needed)
 	cookieFile := EnsureUserCookie(owner, cfg)
 	hasCookie := false
 	if cookieFile != "" {
@@ -630,7 +630,7 @@ func fileExistsCheck(path string) bool {
 	return !info.IsDir()
 }
 
-// EnsureUserCookie ensures the cookie file exists on disk, restoring it from database if necessary.
+// EnsureUserCookie ensures the user's cookie file exists on disk, restoring it from database if necessary.
 func EnsureUserCookie(owner string, cfg *config.Config) string {
 	if cfg == nil || cfg.CookiesDir == "" || owner == "" {
 		return ""
@@ -646,10 +646,6 @@ func EnsureUserCookie(owner string, cfg *config.Config) string {
 		if err := os.WriteFile(cookieFile, []byte(dbCookie), 0644); err == nil {
 			return cookieFile
 		}
-	}
-	globalCookie := filepath.Join(cfg.CookiesDir, "cookies.txt")
-	if fileExistsCheck(globalCookie) {
-		return globalCookie
 	}
 	return ""
 }

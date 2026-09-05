@@ -328,7 +328,7 @@ install_dependencies() {
 # =============================
 download_telecloud() {
     echo "[+] Fetching the latest release info from GitHub..."
-    API_DATA=$(curl -fsSL --connect-timeout 10 "https://api.github.com/repos/dabeecao/telecloud-go/releases/latest" 2>/dev/null || echo "")
+    API_DATA=$(curl -fsSL --connect-timeout 10 "https://api.github.com/repos/kanpief/mernorcloud/releases/latest" 2>/dev/null || echo "")
     
     if [ -z "$API_DATA" ]; then
         echo "[!] Cannot connect to GitHub API!"; return 1
@@ -1232,7 +1232,7 @@ manage_backups() {
 
 update_app() {
     echo "[+] Checking for updates..."
-    API_DATA=$(curl -fsSL --connect-timeout 10 "https://api.github.com/repos/dabeecao/telecloud-go/releases/latest" 2>/dev/null || echo "")
+    API_DATA=$(curl -fsSL --connect-timeout 10 "https://api.github.com/repos/kanpief/mernorcloud/releases/latest" 2>/dev/null || echo "")
     
     if [ -z "$API_DATA" ]; then
         echo "❌ Error: Cannot fetch data from GitHub API!"; return
@@ -1316,7 +1316,7 @@ update_app() {
 
 update_setup_script() {
     echo "[+] Checking for management script updates..."
-    local SCRIPT_URL="https://raw.githubusercontent.com/dabeecao/telecloud-go/main/auto-setup-en.sh"
+    local SCRIPT_URL="https://raw.githubusercontent.com/kanpief/mernorcloud/main/auto-setup-en.sh"
     # Download temporary file
     if download_file "$SCRIPT_URL" "$BASE_DIR/auto-setup-en.sh.new"; then
         mv "$BASE_DIR/auto-setup-en.sh.new" "$BASE_DIR/auto-setup-en.sh"

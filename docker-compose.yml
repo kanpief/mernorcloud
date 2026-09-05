@@ -1,11 +1,11 @@
 services:
-  telecloud:
-    # NOTE: pin to a tagged version in production (e.g. ghcr.io/dabeecao/telecloud-go:v3.4.1)
-    image: ghcr.io/dabeecao/telecloud-go:latest
+  mernorcloud:
+    # NOTE: pin to a tagged version in production (e.g. ghcr.io/kanpief/mernorcloud:latest)
+    image: ghcr.io/kanpief/mernorcloud:latest
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: telecloud
+    container_name: mernorcloud
     restart: unless-stopped
     ports:
       # Bind to loopback only by default so the open /setup endpoint isn't

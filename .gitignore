@@ -19,7 +19,7 @@ session.json
 *.db-wal
 data/*
 !data/cookies/
-!data/cookies/cookies.txt
+!data/cookies/.gitkeep
 
 # Media and Generated Assets
 static/thumbs/*

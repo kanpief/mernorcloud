@@ -1,71 +1,88 @@
-# 🛠️ Development & Localization / Phát triển & Bản dịch
+# 🛠️ Development & Build Guide / Hướng dẫn Phát triển & Build
 
-Guide for developers and contributors who want to build TeleCloud from source or contribute translations.
-Hướng dẫn dành cho nhà phát triển và người đóng góp muốn tự build TeleCloud hoặc đóng góp bản dịch.
+Hướng dẫn chi tiết dành cho nhà phát triển muốn tự biên dịch MernorCloud (Zpiltk Edition) từ mã nguồn hoặc tùy biến giao diện/bản dịch.  
+Guide for developers who want to build MernorCloud (Zpiltk Edition) from source or customize the UI and translations.
 
 ---
 
 ## 🇻🇳 Tiếng Việt
 
-### 1. Build từ nguồn
+### 1. Biên dịch từ nguồn (Build from Source)
 
-#### Phương pháp 1: Build bằng Docker (Khuyên dùng)
-Docker xử lý toàn bộ quá trình build mà không cần cài đặt Go hay Bun trên máy.
-1. Clone dự án: `git clone --recursive https://github.com/dabeecao/telecloud-go.git`
-2. Build image: `sudo docker build --build-arg DEFAULT_API_ID=your_api_id --build-arg DEFAULT_API_HASH=your_api_hash -t telecloud:local .`
-3. Chạy image vừa build:
+#### Cách 1: Build bằng Docker (Khuyên dùng)
+Docker sẽ tự động xử lý toàn bộ quy trình biên dịch frontend và backend mà không cần cài đặt Golang hay Bun trên máy:
+
+1. Clone kho lưu trữ:
    ```bash
-   sudo docker run -d -p 8091:8091 -v "$(pwd)/data:/app/data" --env-file .env telecloud:local
+   git clone https://github.com/kanpief/mernorcloud.git
+   cd mernorcloud
+   ```
+2. Build image cục bộ:
+   ```bash
+   docker build -t mernorcloud:local .
+   ```
+3. Khởi chạy container:
+   ```bash
+   docker run -d -p 8091:8091 -v "$(pwd)/data:/app/data" --env-file .env mernorcloud:local
    ```
 
-#### Phương pháp 2: Build thủ công (Native)
-1. Cài đặt **Golang (1.26+)** và **Bun** (https://bun.com).
-2. Clone với `--recursive` (Bắt buộc để lấy code frontend):
-   `git clone --recursive https://github.com/dabeecao/telecloud-go.git`
-3. Build Frontend:
+---
+
+#### Cách 2: Build thủ công (Native)
+Yêu cầu hệ thống:
+* **Golang 1.24+**: [https://go.dev](https://go.dev)
+* **Bun**: [https://bun.sh](https://bun.sh) (dùng để bundle frontend)
+
+Các bước thực hiện:
+1. **Biên dịch Frontend**:
    ```bash
    cd web
    bun install
    bun run build.js
    cd ..
-   # Hoặc đơn giản là chạy `make frontend` ở thư mục gốc
+   # Hoặc chạy lệnh: make frontend (nếu có make)
    ```
-4. Build Backend:
+2. **Biên dịch Backend (Go)**:
    ```bash
    go mod tidy
    go build -o telecloud
    ```
 
-##### Cách nhúng API ID & API Hash mặc định khi build cục bộ:
-Để tránh bị lộ thông tin API nhạy cảm khi đẩy code lên GitHub, TeleCloud hỗ trợ tự động nạp thông tin này từ file `.env` cục bộ (được bỏ qua bởi Git).
-1. Khai báo `API_ID` và `API_HASH` trong tệp `.env`.
-2. Sử dụng các công cụ build:
-   - **Bằng Makefile**: Chạy lệnh `make` hoặc `make build`. Script sẽ tự động lấy API từ tệp `.env` để nhúng lúc biên dịch.
-   - **Bằng Script build test**: Chạy lệnh `./build-test.sh`. Script cũng sẽ tự đọc `.env`, hoặc hiển thị hộp thoại yêu cầu nhập nếu không tìm thấy.
-   - **Bằng lệnh thủ công**:
-     ```bash
-     go build -ldflags="-X telecloud/config.DefaultAPIIDStr=YOUR_API_ID -X telecloud/config.DefaultAPIHash=YOUR_API_HASH" -o telecloud
-     ```
+##### Nhúng thông tin API Telegram mặc định khi biên dịch:
+Để nhúng sẵn Telegram `API_ID` và `API_HASH` vào binary khi phát hành:
+1. Định nghĩa `API_ID` và `API_HASH` trong tệp `.env` cục bộ.
+2. Biên dịch bằng `make`:
+   ```bash
+   make build
+   ```
+3. Hoặc biên dịch trực tiếp bằng `go build`:
+   ```bash
+   go build -ldflags="-X telecloud/config.DefaultAPIIDStr=YOUR_API_ID -X telecloud/config.DefaultAPIHash=YOUR_API_HASH" -o telecloud
+   ```
 
+---
 
-### 2. Đóng góp bản dịch (Localization)
+### 2. Tùy biến Bản dịch & Giao diện (Localization)
 
-Mã nguồn frontend nằm ở repo: [**dabeecao/telecloud-frontend**](https://github.com/dabeecao/telecloud-frontend).
-1. Tìm tệp bản dịch trong `static/locales/` (VD: `vi.json`).
-2. Tạo tệp mới (VD: `fr.json`) và dịch từ `en.json`.
-3. Thêm ngôn ngữ vào `availableLangs` trong `static/js/common.js`.
-4. Gửi Pull Request vào repository frontend.
-### 3. Lưu ý về phát triển Cơ sở dữ liệu (SQL) & Khóa mã hóa
+Toàn bộ mã nguồn giao diện và các tệp ngôn ngữ nằm trong thư mục `web/`:
+1. Các tệp từ điển ngôn ngữ định dạng JSON nằm ở `web/static/locales/` (ví dụ: `vi.json`, `en.json`, `zh.json`, `ru.json`...).
+2. Để thêm ngôn ngữ mới:
+   - Tạo tệp `web/static/locales/<mã_ngôn_ngữ>.json` (sao chép từ `en.json` và dịch các giá trị).
+   - Đăng ký ngôn ngữ trong mảng `availableLangs` tại `web/static/js/common.js`.
+   - Chạy lệnh `bun run build.js` trong thư mục `web/` để nén các bản dịch vào binary.
+
+---
+
+### 3. Quy chuẩn Cơ sở dữ liệu (SQL) & Khóa mã hóa
 
 #### Khóa mã hóa (`master.key`):
-- Để tránh xung đột đường dẫn lưu trữ khóa `master.key` khi thư mục `data` được tạo sau lúc ứng dụng khởi động, toàn bộ mã nguồn sử dụng hàm `utils.GetMasterKeyFilePath()` để xác định vị trí tệp khóa chủ.
-- Hàm này tự động phát hiện tệp khóa tồn tại sẵn tại các đường dẫn: `/app/data/master.key`, `data/master.key` hoặc gần file SQLite DB `DATABASE_PATH`.
-- Trong phát triển, luôn gọi hàm `utils.GetMasterKeyFilePath()` thay vì tự nội suy đường dẫn để tránh lỗi mất khóa hay sinh khóa mới khi cấu hình MySQL/Postgres.
+* Để tránh xung đột đường dẫn lưu trữ khóa `master.key` khi thư mục `data` được tạo sau khi ứng dụng khởi chạy, toàn bộ mã nguồn sử dụng helper `utils.GetMasterKeyFilePath()`.
+* Không viết kiểm tra tệp đường dẫn cứng để đảm bảo tương thích khi chạy đa nền tảng và đa Database (SQLite, MySQL, PostgreSQL).
 
 #### Quy tắc tương thích cơ sở dữ liệu:
-- Khi viết các câu truy vấn SQL liên quan tới kiểu dữ liệu logic (`BOOLEAN`), ví dụ trường `is_folder` hoặc `force_password_change`:
-  - **KHÔNG ĐƯỢC** gán hoặc so sánh trực tiếp với số nguyên (`1` hoặc `0`).
-  - **BẮT BUỘC** sử dụng các từ khóa SQL tiêu chuẩn là `TRUE` và `FALSE` để đảm bảo tương thích tốt nhất trên cả SQLite, MySQL và đặc biệt là cơ chế so khớp kiểu dữ liệu nghiêm ngặt của PostgreSQL.
+* Khi viết các câu truy vấn SQL liên quan tới kiểu logic (`BOOLEAN`):
+  * **KHÔNG ĐƯỢC** gán hoặc so sánh trực tiếp với số nguyên (`1` hoặc `0`).
+  * **BẮT BUỘC** sử dụng các từ khóa SQL tiêu chuẩn là `TRUE` và `FALSE` để đảm bảo tương thích tốt nhất trên cả SQLite, MySQL và cơ chế so khớp kiểu dữ liệu nghiêm ngặt của PostgreSQL.
 
 ---
 
@@ -74,41 +91,42 @@ Mã nguồn frontend nằm ở repo: [**dabeecao/telecloud-frontend**](https://g
 ### 1. Build from Source
 
 #### Method 1: Docker Build (Recommended)
-1. `git clone --recursive https://github.com/dabeecao/telecloud-go.git`
-2. `sudo docker build --build-arg DEFAULT_API_ID=your_api_id --build-arg DEFAULT_API_HASH=your_api_hash -t telecloud:local .`
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/kanpief/mernorcloud.git
+   cd mernorcloud
+   ```
+2. Build local image:
+   ```bash
+   docker build -t mernorcloud:local .
+   ```
+3. Run container:
+   ```bash
+   docker run -d -p 8091:8091 -v "$(pwd)/data:/app/data" --env-file .env mernorcloud:local
+   ```
 
-#### Method 2: Manual Build
-1. Install **Golang (1.26+)** and **Bun** (https://bun.com).
-2. Build frontend in `web/` using `bun install && bun run build.js` (or `make frontend` in root).
-3. Run `go mod tidy` and `go build -o telecloud` in root.
+---
 
-##### Injecting default API credentials during local build:
-To prevent exposing sensitive API credentials in Git history, TeleCloud supports loading them dynamically from a local `.env` file (which is ignored by Git).
-1. Define `API_ID` and `API_HASH` in your `.env` file.
-2. Build using helper tools:
-   - **Using Makefile**: Run `make` or `make build`. It will extract credentials from `.env` and embed them.
-   - **Using Test Script**: Run `./build-test.sh`. It also reads from `.env` or prompts for inputs if missing.
-   - **Manually**:
-     ```bash
-     go build -ldflags="-X telecloud/config.DefaultAPIIDStr=YOUR_API_ID -X telecloud/config.DefaultAPIHash=YOUR_API_HASH" -o telecloud
-     ```
+#### Method 2: Manual Native Build
+1. Install **Golang 1.24+** and **Bun** ([bun.sh](https://bun.sh)).
+2. Build frontend assets:
+   ```bash
+   cd web && bun install && bun run build.js && cd ..
+   ```
+3. Build Go backend:
+   ```bash
+   go mod tidy
+   go build -o telecloud
+   ```
 
+##### Embedding default Telegram API credentials:
+```bash
+go build -ldflags="-X telecloud/config.DefaultAPIIDStr=YOUR_API_ID -X telecloud/config.DefaultAPIHash=YOUR_API_HASH" -o telecloud
+```
 
-### 2. Contributing Translations
-Frontend source: [**dabeecao/telecloud-frontend**](https://github.com/dabeecao/telecloud-frontend).
-1. Edit JSON files in `static/locales/`.
-2. Add the language to `availableLangs` in `static/js/common.js`.
-3. Submit a Pull Request.
+---
 
-
-### 3. Database Development & Master Key Guidelines
-
-#### Encryption Key (`master.key`):
-- To prevent key path conflicts when the `data` directory is created dynamically during runtime, always use `utils.GetMasterKeyFilePath()` to resolve the persistent key path.
-- The path resolver automatically checks standard locations (`/app/data/master.key`, `data/master.key`, or relative to SQLite `DATABASE_PATH`) before choosing a fallback write path.
-- Never write ad-hoc file checks for `master.key`; use the unified helper instead to prevent auto-regeneration bugs under MySQL/PostgreSQL.
-
-#### Database Compatibility Guidelines:
-- When writing SQL queries that filter or write to `BOOLEAN` columns (such as `is_folder` or `force_password_change`):
-  - **DO NOT** use integer literals (`1` or `0`).
-  - **ALWAYS** use standard SQL boolean literals `TRUE` and `FALSE` to satisfy PostgreSQL's strict type verification while keeping full compatibility with SQLite and MySQL.
+### 2. Localization & Frontend Customization
+1. Locale JSON files are stored in `web/static/locales/`.
+2. Add new languages or refine existing strings.
+3. Re-bundle assets using `cd web && bun run build.js`.

@@ -327,7 +327,7 @@ install_dependencies() {
 # =============================
 download_telecloud() {
     echo "[+] Đang lấy thông tin phiên bản mới nhất từ GitHub..."
-    API_DATA=$(curl -fsSL --connect-timeout 10 "https://api.github.com/repos/dabeecao/telecloud-go/releases/latest" 2>/dev/null || echo "")
+    API_DATA=$(curl -fsSL --connect-timeout 10 "https://api.github.com/repos/kanpief/mernorcloud/releases/latest" 2>/dev/null || echo "")
     
     if [ -z "$API_DATA" ]; then
         echo "[!] Không thể kết nối tới GitHub API!"; return 1
@@ -1343,7 +1343,7 @@ manage_backups() {
 
 update_app() {
     echo "[+] Đang kiểm tra bản cập nhật..."
-    API_DATA=$(curl -fsSL --connect-timeout 10 "https://api.github.com/repos/dabeecao/telecloud-go/releases/latest" 2>/dev/null || echo "")
+    API_DATA=$(curl -fsSL --connect-timeout 10 "https://api.github.com/repos/kanpief/mernorcloud/releases/latest" 2>/dev/null || echo "")
     
     if [ -z "$API_DATA" ]; then
         echo "❌ Lỗi: Không thể lấy dữ liệu từ GitHub API!"; return
@@ -1427,7 +1427,7 @@ update_app() {
 
 update_setup_script() {
     echo "[+] Đang kiểm tra cập nhật cho script quản lý..."
-    local SCRIPT_URL="https://raw.githubusercontent.com/dabeecao/telecloud-go/main/auto-setup.sh"
+    local SCRIPT_URL="https://raw.githubusercontent.com/kanpief/mernorcloud/main/auto-setup.sh"
     # Tải về file tạm
     if download_file "$SCRIPT_URL" "$BASE_DIR/auto-setup.sh.new"; then
         mv "$BASE_DIR/auto-setup.sh.new" "$BASE_DIR/auto-setup.sh"
