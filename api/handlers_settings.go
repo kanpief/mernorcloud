@@ -924,7 +924,7 @@ func (h *Handler) handleGetFavicon(c *gin.Context) {
 	}
 
 	// Fallback to embedded favicon
-	data, err := fs.ReadFile(h.contentFS, "web/static/favicon.ico")
+	data, err := fs.ReadFile(h.contentFS, "static/favicon.ico")
 	if err == nil {
 		c.Header("Cache-Control", "public, max-age=86400")
 		c.Data(http.StatusOK, "image/x-icon", data)

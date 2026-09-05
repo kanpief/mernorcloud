@@ -40,7 +40,6 @@ func SetupRouter(cfg *config.Config, contentFS fs.FS, startTG func(cfg *config.C
 
 	// Custom Branding & Favicon Routes
 	r.GET("/favicon.ico", h.handleGetFavicon)
-	r.GET("/static/favicon.ico", h.handleGetFavicon)
 	r.GET("/api/custom/favicon", h.handleGetFavicon)
 	r.GET("/api/custom/logo", h.handleGetLogo)
 	r.GET("/api/settings/branding", h.handleGetBranding)

@@ -149,8 +149,15 @@ func (h *Handler) handleGetResetAdmin(c *gin.Context) {
 	}
 
 	setCSRFCookie(c)
+	siteName := database.GetSetting("site_name")
+	if siteName == "" {
+		siteName = "TeleCloud"
+	}
 	c.HTML(http.StatusOK, "reset-admin.html", gin.H{
-		"version": h.cfg.Version,
+		"version":            h.cfg.Version,
+		"site_name":          siteName,
+		"has_custom_logo":    database.GetSetting("custom_logo") != "",
+		"has_custom_favicon": database.GetSetting("custom_favicon") != "",
 	})
 }
 

@@ -65,6 +65,7 @@ ENV FFMPEG_PATH=/usr/bin/ffmpeg
 ENV THUMBS_DIR=/app/data/thumbs
 ENV COOKIES_DIR=/app/data/cookies
 ENV TEMP_DIR=/tmp
+ENV DATABASE_PATH=/app/data/database.db
 
 # Copy the compiled binary (assets are embedded via go:embed)
 COPY --from=builder /app/telecloud /app/telecloud
