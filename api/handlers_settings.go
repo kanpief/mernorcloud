@@ -185,9 +185,15 @@ func (h *Handler) handlePostChildS3(c *gin.Context) {
 
 func (h *Handler) handleGetUserSettings(c *gin.Context) {
 	username := c.GetString("username")
+	isAdmin := c.GetBool("is_admin")
 	theme := database.GetUserSetting(username, "theme")
+	downloadEnabled := true
+	if !isAdmin {
+		_ = database.RODB.Get(&downloadEnabled, "SELECT download_enabled FROM child_accounts WHERE username = ?", username)
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"theme": theme,
+		"theme":            theme,
+		"download_enabled": downloadEnabled,
 	})
 }
 
@@ -407,7 +413,7 @@ func (h *Handler) handleGetUsers(c *gin.Context) {
 		return
 	}
 	var users []database.User
-	err := database.RODB.Select(&users, "SELECT id, username, created_at FROM child_accounts ORDER BY id DESC")
+	err := database.RODB.Select(&users, "SELECT id, username, download_enabled, created_at FROM child_accounts ORDER BY id DESC")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -625,6 +631,36 @@ func (h *Handler) handlePostUserResetPass(c *gin.Context) {
 	database.DB.Exec("DELETE FROM sessions WHERE username = ?", username)
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "temp_password": tempPassword})
+}
+
+func (h *Handler) handlePostUserDownload(c *gin.Context) {
+	if !c.GetBool("is_admin") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	username := c.Param("username")
+	enabledStr := c.PostForm("enabled")
+	enabled := enabledStr == "true" || enabledStr == "1"
+
+	var val interface{} = 1
+	if !enabled {
+		val = 0
+	}
+	if database.IsPostgres() {
+		val = enabled
+	}
+
+	res, err := database.DB.Exec("UPDATE child_accounts SET download_enabled = ? WHERE username = ?", val, username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user_not_found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success", "download_enabled": enabled})
 }
 
 func (h *Handler) handlePostBotPool(c *gin.Context) {

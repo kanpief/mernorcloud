@@ -51,15 +51,18 @@ func (h *Handler) handleGetIndex(c *gin.Context) {
 	globalWebdavEnabled := database.GetSetting("webdav_enabled") == "true"
 	globalUploadAPIEnabled := database.GetSetting("upload_api_enabled") == "true"
 
+	downloadEnabled := true
 	if !isAdmin {
 		var userStatus struct {
-			WebDAVEnabled bool `db:"webdav_enabled"`
-			APIEnabled    bool `db:"api_enabled"`
+			WebDAVEnabled   bool `db:"webdav_enabled"`
+			APIEnabled      bool `db:"api_enabled"`
+			DownloadEnabled bool `db:"download_enabled"`
 		}
-		err := database.RODB.Get(&userStatus, "SELECT webdav_enabled, api_enabled FROM child_accounts WHERE username = ?", sessionUsername)
+		err := database.RODB.Get(&userStatus, "SELECT webdav_enabled, api_enabled, download_enabled FROM child_accounts WHERE username = ?", sessionUsername)
 		if err == nil {
 			webdavEnabled = (globalWebdavEnabled && userStatus.WebDAVEnabled)
 			uploadAPIEnabled = (globalUploadAPIEnabled && userStatus.APIEnabled)
+			downloadEnabled = userStatus.DownloadEnabled
 		}
 		webdavUser = sessionUsername
 	}
@@ -126,6 +129,7 @@ func (h *Handler) handleGetIndex(c *gin.Context) {
 		"webauthn_rporigin":     originsStr,
 		"version":               h.cfg.Version,
 		"is_admin":              isAdmin,
+		"download_enabled":      downloadEnabled,
 		"username":              sessionUsername,
 		"storage_used":          userStorageUsed,
 		"theme":                 database.GetUserSetting(sessionUsername, "theme"),
@@ -1189,6 +1193,15 @@ func (h *Handler) handleStreamFile(c *gin.Context) {
 }
 
 func (h *Handler) handleDownloadFile(c *gin.Context) {
+	if !c.GetBool("is_admin") {
+		var downloadEnabled bool
+		err := database.RODB.Get(&downloadEnabled, "SELECT download_enabled FROM child_accounts WHERE username = ?", c.GetString("username"))
+		if err == nil && !downloadEnabled {
+			c.JSON(http.StatusForbidden, gin.H{"error": "download_disabled", "message": "Download permission has been disabled for your account."})
+			return
+		}
+	}
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_id"})
@@ -1680,6 +1693,15 @@ func (h *Handler) handlePublicShareAPI(c *gin.Context) {
 }
 
 func (h *Handler) handleDownloadFolder(c *gin.Context) {
+	if !c.GetBool("is_admin") {
+		var downloadEnabled bool
+		err := database.RODB.Get(&downloadEnabled, "SELECT download_enabled FROM child_accounts WHERE username = ?", c.GetString("username"))
+		if err == nil && !downloadEnabled {
+			c.JSON(http.StatusForbidden, gin.H{"error": "download_disabled", "message": "Download permission has been disabled for your account."})
+			return
+		}
+	}
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_id"})

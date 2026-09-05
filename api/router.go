@@ -158,6 +158,7 @@ func SetupRouter(cfg *config.Config, contentFS fs.FS, startTG func(cfg *config.C
 		api.POST("/users", h.handlePostUser)
 		api.DELETE("/users/:username", h.handleDeleteUser)
 		api.POST("/users/:username/reset-pass", h.handlePostUserResetPass)
+		api.POST("/users/:username/download", h.handlePostUserDownload)
 
 		// Files & Folders
 		api.GET("/files", h.handleGetFiles)

@@ -87,7 +87,7 @@ func (h *Handler) handleVerifySharePassword(c *gin.Context) {
 func (h *Handler) handleGetSharedFile(c *gin.Context) {
 	token := c.Param("token")
 	var item database.File
-	if err := database.RODB.Get(&item, "SELECT id, filename, size, created_at, thumb_path, is_folder, path, share_password, share_views, share_downloads FROM files WHERE share_token = ? AND deleted_at IS NULL AND (is_folder = TRUE OR message_id IS NOT NULL)", token); err != nil {
+	if err := database.RODB.Get(&item, "SELECT id, filename, size, created_at, thumb_path, is_folder, path, share_password, share_views, share_downloads, allow_download FROM files WHERE share_token = ? AND deleted_at IS NULL AND (is_folder = TRUE OR message_id IS NOT NULL)", token); err != nil {
 		c.HTML(http.StatusNotFound, "error.html", gin.H{
 			"error_message": "File not found or link has been revoked.",
 			"version":       h.cfg.Version,
@@ -116,6 +116,7 @@ func (h *Handler) handleGetSharedFile(c *gin.Context) {
 			"version":         h.cfg.Version,
 			"share_views":     item.ShareViews,
 			"share_downloads": item.ShareDownloads,
+			"allow_download":  item.AllowDownload,
 		})
 		return
 	}
@@ -138,13 +139,14 @@ func (h *Handler) handleGetSharedFile(c *gin.Context) {
 		"version":         h.cfg.Version,
 		"share_views":     item.ShareViews,
 		"share_downloads": item.ShareDownloads,
+		"allow_download":  item.AllowDownload,
 	})
 }
 
 func (h *Handler) handleGetSharedFolderFiles(c *gin.Context) {
 	token := c.Param("token")
 	var item database.File
-	if err := database.RODB.Get(&item, "SELECT filename, path, is_folder, share_password FROM files WHERE share_token = ? AND deleted_at IS NULL", token); err != nil || !item.IsFolder {
+	if err := database.RODB.Get(&item, "SELECT filename, path, is_folder, share_password, allow_download FROM files WHERE share_token = ? AND deleted_at IS NULL", token); err != nil || !item.IsFolder {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Folder not found"})
 		return
 	}
@@ -189,7 +191,7 @@ func (h *Handler) handleGetSharedFolderFiles(c *gin.Context) {
 			}
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"files": files, "total_size": totalSize})
+	c.JSON(http.StatusOK, gin.H{"files": files, "total_size": totalSize, "allow_download": item.AllowDownload})
 }
 
 func (h *Handler) handleStreamSharedFile(c *gin.Context) {
@@ -229,6 +231,11 @@ func (h *Handler) handleDownloadSharedFile(c *gin.Context) {
 
 	if !h.checkShareAuth(c, item) {
 		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	if !item.AllowDownload {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "download_disabled", "message": "Downloading is disabled for this share."})
 		return
 	}
 
@@ -333,6 +340,16 @@ func (h *Handler) handleDownloadSharedFileInFolder(c *gin.Context) {
 	token := c.Param("token")
 	id, _ := strconv.Atoi(c.Param("id"))
 
+	var shareItem database.File
+	if err := database.RODB.Get(&shareItem, "SELECT * FROM files WHERE share_token = ? AND deleted_at IS NULL", token); err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if !shareItem.AllowDownload {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "download_disabled", "message": "Downloading is disabled for this share."})
+		return
+	}
+
 	item, err := h.resolveSharedFileInFolder(c, token, id)
 	if err != nil {
 		switch err.Error() {
@@ -390,6 +407,11 @@ func (h *Handler) handleGetDirectDownload(c *gin.Context) {
 		return
 	}
 
+	if !item.AllowDownload {
+		c.JSON(http.StatusForbidden, gin.H{"error": "download_disabled", "message": "Downloading is disabled for this share."})
+		return
+	}
+
 	// Direct links cannot present a password prompt, so block access entirely
 	// if the share is password-protected.
 	if item.SharePassword != nil && *item.SharePassword != "" {
@@ -418,6 +440,9 @@ func (h *Handler) handleShareFile(c *gin.Context) {
 		return
 	}
 	password := c.PostForm("password")
+	allowDownloadStr := c.DefaultPostForm("allow_download", "true")
+	allowDownload := allowDownloadStr == "true" || allowDownloadStr == "1"
+
 	var item database.File
 	username := c.GetString("username")
 	if err := database.RODB.Get(&item, "SELECT path, is_folder FROM files WHERE id = ? AND owner = ?", id, username); err != nil {
@@ -434,11 +459,19 @@ func (h *Handler) handleShareFile(c *gin.Context) {
 		}
 	}
 
-	token := uuid.New().String()
-	database.DB.Exec("UPDATE files SET share_token = ?, share_password = ?, share_views = 0, share_downloads = 0 WHERE id = ?", token, hashedPass, id)
+	var val interface{} = 1
+	if !allowDownload {
+		val = 0
+	}
+	if database.IsPostgres() {
+		val = allowDownload
+	}
 
-	resp := gin.H{"share_token": token}
-	if !item.IsFolder {
+	token := uuid.New().String()
+	database.DB.Exec("UPDATE files SET share_token = ?, share_password = ?, share_views = 0, share_downloads = 0, allow_download = ? WHERE id = ?", token, hashedPass, val, id)
+
+	resp := gin.H{"share_token": token, "allow_download": allowDownload}
+	if !item.IsFolder && allowDownload {
 		resp["direct_token"] = utils.GenerateDirectToken(token)
 	}
 	c.JSON(http.StatusOK, resp)
@@ -477,7 +510,7 @@ func (h *Handler) handleGetShares(c *gin.Context) {
 
 	for i := range files {
 		files[i].Path = unmapPath(files[i].Path, username, isAdmin)
-		if files[i].ShareToken != nil && !files[i].IsFolder {
+		if files[i].ShareToken != nil && !files[i].IsFolder && files[i].AllowDownload {
 			files[i].DirectToken = utils.GenerateDirectToken(*files[i].ShareToken)
 		}
 		if files[i].ThumbPath != nil {

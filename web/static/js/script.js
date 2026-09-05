@@ -455,10 +455,11 @@ window.cloudApp = cloudApp;
 window.shareApp = shareApp;
 window.shareFileApp = shareFileApp;
 
-function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnabled = false, webdavUser = '', webdavPassword = '', uploadAPIEnabled = false, uploadAPIKey = '', globalWebdavEnabled = true, globalAPIEnabled = true, webauthnRPID = '', webauthnOrigins = '', initialTheme = 'system', s3Enabled = false, s3AccessKey = '', s3SecretKey = '', globalS3Enabled = true, forceChange = false, logGroupId = '', initialBotTokens = '', initialBotStatuses = '{}', initialTelegramUserId = '', initialBotPoolUploadFolder = '') {
+function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnabled = false, webdavUser = '', webdavPassword = '', uploadAPIEnabled = false, uploadAPIKey = '', globalWebdavEnabled = true, globalAPIEnabled = true, webauthnRPID = '', webauthnOrigins = '', initialTheme = 'system', s3Enabled = false, s3AccessKey = '', s3SecretKey = '', globalS3Enabled = true, forceChange = false, logGroupId = '', initialBotTokens = '', initialBotStatuses = '{}', initialTelegramUserId = '', initialBotPoolUploadFolder = '', downloadEnabled = true) {
     return {
         isLoggedIn: initialIsLoggedIn,
         isAdmin: isAdmin,
+        downloadEnabled: downloadEnabled,
         forceChange: forceChange,
         storageUsed: storageUsed,
         webdavEnabled: webdavEnabled,
@@ -872,6 +873,7 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
         sharePasswordFile: null,
         sharePasswordEnabled: false,
         sharePasswordInput: '',
+        shareAllowDownload: true,
         sharedLinks: [],
         isSharedLinksLoading: false,
         sharedLinksSearchQuery: '',
@@ -1369,6 +1371,27 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
                 this.showToast(this.t('conn_error'), 'error');
             }
         },
+        async toggleUserDownload(user) {
+            const newStatus = !user.download_enabled;
+            let fd = new FormData();
+            fd.append('enabled', newStatus ? 'true' : 'false');
+            try {
+                const res = await fetch(`/api/users/${user.username}/download`, {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'X-CSRF-Token': TeleCloud.getCsrfToken() }
+                });
+                if (res.ok) {
+                    user.download_enabled = newStatus;
+                    this.showToast(newStatus ? this.t('toast_download_enabled', {u: user.username}) : this.t('toast_download_disabled', {u: user.username}), 'success');
+                } else {
+                    const data = await res.json();
+                    this.showToast(this.handleCommonError(data.error, 'status_error'), 'error');
+                }
+            } catch (e) {
+                this.showToast(this.t('conn_error'), 'error');
+            }
+        },
         async resetUserPassword(username) {
             const confirmed = await this.customConfirm(this.t('reset_password_confirm_title'), this.t('reset_password_confirm_msg', {u: username}), false);
             if (!confirmed) return;
@@ -1435,6 +1458,10 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
         parseMarkdown(t) { return TeleCloud.parseMarkdown(t); },
 
         startDownload(fileId) {
+            if (!this.isAdmin && this.downloadEnabled === false) {
+                this.showToast(this.t('download_disabled_user'), 'error');
+                return;
+            }
             this.isPreparingDownload = true;
             document.cookie = "dl_started=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             const iframe = document.createElement('iframe');
@@ -1460,6 +1487,10 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
             }, 15000);
         },
         startDownloadFolder(folderId) {
+            if (!this.isAdmin && this.downloadEnabled === false) {
+                this.showToast(this.t('download_disabled_user'), 'error');
+                return;
+            }
             this.isPreparingDownload = true;
             document.cookie = "dl_started=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             const iframe = document.createElement('iframe');
@@ -1485,6 +1516,10 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
             }, 30000);
         },
         async downloadSelectedBatch() {
+            if (!this.isAdmin && this.downloadEnabled === false) {
+                this.showToast(this.t('download_disabled_user'), 'error');
+                return;
+            }
             const fileIdsToDownload = this.selectedIds.map(Number).filter(id => {
                 const f = this.files.find(file => file.id === id);
                 return f && !f.is_folder;
@@ -3655,6 +3690,7 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
                     this.sharePasswordFile = targetFile;
                     this.sharePasswordEnabled = false;
                     this.sharePasswordInput = '';
+                    this.shareAllowDownload = true;
                     this.sharePasswordModal = true;
                 }
             }
@@ -3668,6 +3704,7 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
             targetFile.share_token = 'loading...';
             const fd = new FormData();
             if (password) fd.append('password', password);
+            fd.append('allow_download', this.shareAllowDownload ? 'true' : 'false');
             try {
                 const response = await fetch(`/api/files/${targetFile.id}/share`, { method: 'POST', body: fd, headers: { 'X-CSRF-Token': TeleCloud.getCsrfToken() } });
                 if (response.ok) {
@@ -3675,6 +3712,7 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
                     targetFile.share_token = data.share_token;
                     targetFile.direct_token = data.direct_token;
                     targetFile.has_share_password = !!password;
+                    targetFile.allow_download = data.allow_download !== undefined ? data.allow_download : this.shareAllowDownload;
                     this.copyShareLink(targetFile, 'regular');
                 } else {
                     targetFile.share_token = null;
@@ -6324,6 +6362,7 @@ function cloudApp(initialIsLoggedIn, isAdmin = true, storageUsed = 0, webdavEnab
 function shareApp() {
     return {
         shareToken: '',
+        allowDownload: true,
         showPrivacyModal: false,
         currentTheme: localStorage.getItem('theme') || 'system',
         currentTab: 'files',
@@ -6365,6 +6404,10 @@ function shareApp() {
         },
         
         startDownload(fileId) {
+            if (!this.allowDownload) {
+                this.showToast(this.t('err_download_disabled'), 'error');
+                return;
+            }
             this.isPreparingDownload = true;
             document.cookie = "dl_started=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             const iframe = document.createElement('iframe');
@@ -6390,6 +6433,10 @@ function shareApp() {
 
 
         async downloadSelectedBatch() {
+            if (!this.allowDownload) {
+                this.showToast(this.t('err_download_disabled'), 'error');
+                return;
+            }
             const fileIdsToDownload = this.selectedIds.map(Number).filter(id => {
                 const f = this.files.find(file => file.id === id);
                 return f && !f.is_folder;
@@ -6601,6 +6648,7 @@ function shareApp() {
             });
 
             this.shareToken = this.$refs.token ? this.$refs.token.textContent.trim() : '';
+            this.allowDownload = this.$refs.allowDownload ? this.$refs.allowDownload.textContent.trim() === 'true' : true;
             window.addEventListener('tc-render-pdf-page', (e) => {
                 if (this.pdfViewer && this.pdfViewer.show && this.pdfViewer.scrollMode === 'continuous') {
                     this.renderPdfContinuousPage(e.detail.pageNum);

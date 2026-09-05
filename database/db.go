@@ -1,4 +1,4 @@
-package database
+ package database
 
 import (
 	"database/sql"
@@ -37,6 +37,7 @@ type File struct {
 	SharePassword  *string    `db:"share_password" json:"-"`
 	ShareViews     int        `db:"share_views" json:"share_views"`
 	ShareDownloads int        `db:"share_downloads" json:"share_downloads"`
+	AllowDownload  bool       `db:"allow_download" json:"allow_download"`
 
 	// Virtual fields
 	DirectToken      string `db:"-" json:"direct_token,omitempty"`
@@ -45,12 +46,13 @@ type File struct {
 }
 
 type User struct {
-	ID           int       `db:"id" json:"id"`
-	Username     string    `db:"username" json:"username"`
-	PasswordHash string    `db:"password_hash" json:"-"`
-	CreatedAt    time.Time `db:"created_at" json:"created_at"`
-	FileCount    int       `json:"file_count"`
-	TotalSize    int64     `json:"total_size"`
+	ID              int       `db:"id" json:"id"`
+	Username        string    `db:"username" json:"username"`
+	PasswordHash    string    `db:"password_hash" json:"-"`
+	DownloadEnabled bool      `db:"download_enabled" json:"download_enabled"`
+	CreatedAt       time.Time `db:"created_at" json:"created_at"`
+	FileCount       int       `json:"file_count"`
+	TotalSize       int64     `json:"total_size"`
 }
 
 type WrappedDB struct {
@@ -243,7 +245,8 @@ const sqliteSchema = `
 		deleted_at DATETIME,
 		share_password TEXT,
 		share_views INTEGER DEFAULT 0,
-		share_downloads INTEGER DEFAULT 0
+		share_downloads INTEGER DEFAULT 0,
+		allow_download BOOLEAN DEFAULT 1
 	);
 
 	CREATE TABLE IF NOT EXISTS settings (
@@ -280,6 +283,7 @@ const sqliteSchema = `
 		webdav_enabled INTEGER DEFAULT 1,
 		api_enabled INTEGER DEFAULT 1,
 		force_password_change INTEGER DEFAULT 0,
+		download_enabled INTEGER DEFAULT 1,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -364,7 +368,8 @@ const mysqlSchema = `
 		deleted_at DATETIME,
 		share_password TEXT,
 		share_views INT DEFAULT 0,
-		share_downloads INT DEFAULT 0
+		share_downloads INT DEFAULT 0,
+		allow_download TINYINT(1) DEFAULT 1
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 	CREATE TABLE IF NOT EXISTS settings (
@@ -405,6 +410,7 @@ const mysqlSchema = `
 		s3_access_key VARCHAR(191) UNIQUE,
 		s3_secret_key TEXT,
 		s3_enabled TINYINT(1) DEFAULT 1,
+		download_enabled TINYINT(1) DEFAULT 1,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -484,7 +490,8 @@ const postgresSchema = `
 		deleted_at TIMESTAMP,
 		share_password TEXT,
 		share_views INT DEFAULT 0,
-		share_downloads INT DEFAULT 0
+		share_downloads INT DEFAULT 0,
+		allow_download BOOLEAN DEFAULT TRUE
 	);
 
 	CREATE TABLE IF NOT EXISTS settings (
@@ -524,6 +531,7 @@ const postgresSchema = `
 		s3_access_key TEXT UNIQUE,
 		s3_secret_key TEXT,
 		s3_enabled BOOLEAN DEFAULT TRUE,
+		download_enabled BOOLEAN DEFAULT TRUE,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -621,6 +629,8 @@ func migrateSQLite() error {
 	DB.Exec("ALTER TABLE files ADD COLUMN share_password TEXT")
 	DB.Exec("ALTER TABLE files ADD COLUMN share_views INTEGER DEFAULT 0")
 	DB.Exec("ALTER TABLE files ADD COLUMN share_downloads INTEGER DEFAULT 0")
+	DB.Exec("ALTER TABLE files ADD COLUMN allow_download BOOLEAN DEFAULT 1")
+	DB.Exec("ALTER TABLE child_accounts ADD COLUMN download_enabled INTEGER DEFAULT 1")
 	// Sessions get an explicit expiry column so we can stop trusting tokens
 	// older than 30 days, even if the cookie was somehow retained.
 	DB.Exec("ALTER TABLE sessions ADD COLUMN expires_at DATETIME")
@@ -746,6 +756,12 @@ func migrateMySQL() error {
 	if err := alterTableMySQL("files", "ADD COLUMN share_downloads INT DEFAULT 0"); err != nil {
 		return err
 	}
+	if err := alterTableMySQL("files", "ADD COLUMN allow_download TINYINT(1) DEFAULT 1"); err != nil {
+		return err
+	}
+	if err := alterTableMySQL("child_accounts", "ADD COLUMN download_enabled TINYINT(1) DEFAULT 1"); err != nil {
+		return err
+	}
 	if err := alterTableMySQL("sessions", "ADD COLUMN expires_at DATETIME"); err != nil {
 		return err
 	}
@@ -772,6 +788,8 @@ func migratePostgres() error {
 	DB.Exec("ALTER TABLE files ADD COLUMN IF NOT EXISTS share_password TEXT")
 	DB.Exec("ALTER TABLE files ADD COLUMN IF NOT EXISTS share_views INT DEFAULT 0")
 	DB.Exec("ALTER TABLE files ADD COLUMN IF NOT EXISTS share_downloads INT DEFAULT 0")
+	DB.Exec("ALTER TABLE files ADD COLUMN IF NOT EXISTS allow_download BOOLEAN DEFAULT TRUE")
+	DB.Exec("ALTER TABLE child_accounts ADD COLUMN IF NOT EXISTS download_enabled BOOLEAN DEFAULT TRUE")
 	DB.Exec("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)")
 	DB.Exec("UPDATE sessions SET expires_at = created_at + INTERVAL '30 days' WHERE expires_at IS NULL")
